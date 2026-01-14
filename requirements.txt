@@ -1,0 +1,35 @@
+# LiveKit
+livekit-agents
+livekit-plugins-openai
+livekit-plugins-silero
+livekit-plugins-google
+livekit-plugins-noise-cancellation
+
+# LLM & tools
+mem0ai
+duckduckgo-search
+langchain_community
+requests
+python-dotenv
+
+# Numeric
+numpy==1.26.4
+scipy==1.11.4
+
+# Audio
+librosa==0.11.0
+soundfile==0.13.1
+sounddevice==0.5.3
+
+# ML utils
+scikit-learn==1.3.2
+
+# Speaker recognition
+speechbrain==0.5.16
+huggingface_hub==0.16.4
+
+# Torch
+# ❗ DO NOT install torch here
+# Install torch + torchaudio manually with CUDA
+torch==2.0.1
+torchaudio==2.0.2

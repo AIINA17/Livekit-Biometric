@@ -11,7 +11,14 @@ auth_state = {
     "token": None,
     "user_id": None,
     "username": None,
-    "is_logged_in": False
+    "is_logged_in": False,
+    "is_voice_verified": False,
+    "voice_score": 0.0,
+    "voice_status_detail": "INIT",
+    "voice_feedback_sent": False,
+    "verify_attempts": 0,
+    "last_verified_at": None,
+    "voice_status": "UNVERIFIED"  # UNVERIFIED,VERIFYING, VERIFIED, DENIED
 }
 
 def get_headers():

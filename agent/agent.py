@@ -1,18 +1,13 @@
 """
-AgentServer + CONNECT MODE (UPDATED WITH ALL TOOLS)
-Compatible with livekit-agents == 1.3.11
-
 Run:
 python -m agent.agent connect --room mainroom
 """
 
 import os
 import sys
+import json
 import asyncio
 import time
-import tempfile
-import wave
-import struct
 
 # ================= PATH FIX =================
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ================= LIVEKIT =================
-from livekit import agents, rtc
+from livekit import agents
 from livekit.agents import (
     AgentServer,
     AgentSession,
@@ -58,12 +53,7 @@ from agent.tools import (
     get_order_detail,
     auth_state, # State global untuk verifikasi suara
 )
-
-# ================= VOICE VERIFICATION =================
-from voiceverification.services.biometric_service import BiometricService
-from voiceverification.core.replay_heuristic import replay_heuristic
-from voiceverification.core.decision_engine import decide, Decision
-
+from agent.state import agent_state
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000
@@ -105,15 +95,10 @@ class ShoppingAgent(Agent):
         )
 
     async def on_agent_start(self, session: AgentSession):
-        # Reset verify status saat agent mulai
-        auth_state["is_voice_verified"] = False
-        # Greeting manual (bisa dihapus jika sudah ada di prompt session)
-        # await session.say("Halo! Gue Happy. Ada yang bisa gue bantu?")
-
+        print("🤖 ShoppingAgent started (voice via web)")
 
 # ================= SERVER =================
 server = AgentServer()
-
 
 @server.rtc_session()
 async def connect(ctx: agents.JobContext):
@@ -125,17 +110,39 @@ async def connect(ctx: agents.JobContext):
     room = ctx.room
     print(f"🤖 Agent CONNECT ke room: {room.name}")
 
-    biometric = BiometricService(device="cpu")
-    audio_buffer = []
-    
-    state = {
-        "last_verify": 0,
-        "failures": 0
-    }
-
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(voice="Charon")
     )
+
+    # ================= DATA CHANNEL (VOICE VERIF RESULT) =================
+    @room.on("data_received")
+    def on_room_data_received(data_packet):
+        """
+        data_packet: rtc.DataPacket
+        """
+        try:
+            # Ambil raw bytes
+            payload = data_packet.data
+            print("📩 RAW payload from room:", payload)
+
+            # Decode JSON
+            if isinstance(payload, bytes):
+                data = json.loads(payload.decode("utf-8"))
+            else:
+                data = json.loads(payload)
+
+            print("📦 Parsed data:", data)
+
+        except Exception as e:
+            print("❌ Failed to parse data packet:", e)
+            return
+
+        if data.get("voice_verified") is True:
+            agent_state["is_voice_verified"] = True
+            agent_state["voice_status"] = "VERIFIED"
+            agent_state["last_verified_at"] = time.time()
+
+            print("🔐 Voice verification CONFIRMED from web")
 
     # ================= LOGGING PERCAKAPAN =================
     @session.on("conversation_item_created")
@@ -166,88 +173,9 @@ async def connect(ctx: agents.JobContext):
         ),
     )
 
-    # 🔑 GREETING LANGSUNG
+    # GREETING LANGSUNG
     await session.generate_reply(instructions=SESSION_INSTRUCTION)
 
-    # ================= AUDIO TRACK (VOICE VERIF) =================
-    @room.on("track_subscribed")
-    def on_track(track: rtc.Track, *_):
-        if track.kind != rtc.TrackKind.KIND_AUDIO:
-            return
-
-        async def audio_loop():
-            stream = rtc.AudioStream(track)
-            async for ev in stream:
-                audio_buffer.extend(ev.frame.data)
-                audio_buffer[:] = audio_buffer[-SAMPLE_RATE * 5 :]
-
-                now = time.time()
-                if now - state["last_verify"] < VERIFY_INTERVAL:
-                    continue
-                if len(audio_buffer) < SAMPLE_RATE * 2:
-                    continue
-
-                state["last_verify"] = now
-
-                temp_path = ""
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-                        temp_path = f.name
-                        with wave.open(temp_path, "wb") as w:
-                            w.setnchannels(1)
-                            w.setsampwidth(2)
-                            w.setframerate(SAMPLE_RATE)
-                            w.writeframes(
-                                struct.pack(f"{len(audio_buffer)}h", *audio_buffer)
-                            )
-
-                    replay = replay_heuristic(temp_path, SAMPLE_RATE)
-                    replay_prob = replay["replay_prob"]
-
-                    result = biometric.verify_user(temp_path, ENROLL_PATH)
-                    score = result.get("final_score", 0.0)
-
-                    decision, reason = decide(
-                        speaker_score=score,
-                        replay_prob=replay_prob
-                    )
-
-                    print(
-                        f"[DECISION] speaker={score:.3f}, "
-                        f"replay={replay_prob:.3f}, "
-                        f"decision={decision.value}, reason={reason}"
-                    )
-
-                    # UPDATE GLOBAL AUTH STATE
-                    if decision == Decision.VERIFIED:
-                        auth_state["is_voice_verified"] = True
-                        auth_state["voice_score"] = score
-                        auth_state["voice_status"] = "VERIFIED"
-                        auth_state["last_verified_at"] = time.time()
-                        state["failures"] = 0
-                        print("✅ Voice VERIFIED")
-
-                    elif decision == Decision.REPEAT:
-                        state["failures"] += 1
-                        auth_state["voice_status"] = "VERIFYING"
-                        print(f"🔁 Voice REPEAT ({state['failures']}/{MAX_FAIL})")
-
-                    else:  # DENIED
-                        state["failures"] += 1
-                        print(f"❌ Voice DENIED ({state['failures']}/{MAX_FAIL})")
-
-                        if state["failures"] >= MAX_FAIL:
-                            auth_state["is_voice_verified"] = False
-                            auth_state["voice_status"] = "DENIED"
-
-                            
-                except Exception as e:
-                    print(f"Error verification: {e}")
-                finally:
-                    if temp_path and os.path.exists(temp_path):
-                        os.unlink(temp_path)
-
-        asyncio.create_task(audio_loop())
 
 # ================= CLI =================
 if __name__ == "__main__":

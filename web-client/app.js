@@ -8,6 +8,8 @@ const statusRoom = document.getElementById("status-room");
 const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
 
+let agentReady = false;
+
 leaveBtn.onclick = async () => {
     if (window.room) {
         await window.room.disconnect();
@@ -63,10 +65,46 @@ startBtn.onclick = async () => {
         const result = await res.json();
         console.log("VERIFY RESULT:", result);
 
-        if (result.verified) {
-            statusVerify.innerText = "✅ Verifikasi berhasil!";
-        } else {
+        if (!result.verified) {
             statusVerify.innerText = "❌ Verifikasi gagal, ulangi bicara";
+            return;
+        }
+
+        // ✅ VERIFIED
+        statusVerify.innerText = "✅ Verifikasi berhasil!";
+
+        if (!window.room) {
+            console.warn("Not connected to LiveKit room");
+            statusVerify.innerText = "⚠️ Belum terhubung ke room";
+            return;
+        }
+
+        if (!agentReady) {
+            statusVerify.innerText = "⏳ Menunggu agent siap...";
+            console.warn("Agent not ready yet, verification not sent.");
+            return;
+        }
+
+        // Persiapkan data
+        const payload = JSON.stringify({
+            voice_verified: true,
+            score: result.score,
+            ts: Date.now(),
+        });
+
+        // Encode ke Uint8Array (Best Practice untuk LiveKit)
+        const encoder = new TextEncoder();
+        const dataBytes = encoder.encode(payload);
+
+        // Kirim Data
+        try {
+            await window.room.localParticipant.publishData(
+                dataBytes,
+                { reliable: true}
+            );
+            console.log("📤 Voice verification sent to agent:", payload);
+        } catch (e) {
+            console.error("❌ Failed to publish data:", e);
         }
     };
 
@@ -105,6 +143,14 @@ async function joinLiveKitRoom(token) {
         statusRoom.innerText = "❌ Disconnected from LiveKit room.";
     });
 
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+        console.log("Participant connected:", participant.identity);
+
+        // 🔥 Anggap agent sudah siap
+        agentReady = true;
+        statusRoom.innerText = "🤖 Agent siap, silakan verifikasi suara";
+    });
+
     room.on("trackSubscribed", (track) => {
         if (track.kind === "audio") {
             const audioElement = track.attach();
@@ -116,6 +162,16 @@ async function joinLiveKitRoom(token) {
     });
 
     await room.connect("wss://kpina17-lg4g8x6z.livekit.cloud", token);
+    console.log("Connected to room. Checking existing participants...");
+
+    // Cek apakah sudah ada participant lain (Agent) di dalam room
+    if (room.remoteParticipants.size > 0) {
+        console.log(
+            `Found ${room.remoteParticipants.size} existing participants.`,
+        );
+        agentReady = true;
+        statusRoom.innerText = "🤖 Agent terdeteksi, silakan verifikasi suara";
+    }
 
     const track = await LivekitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(track);

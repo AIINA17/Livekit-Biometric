@@ -1,7 +1,7 @@
 import numpy as np
 import librosa
 
-def replay_heuristic(wav_path, sr):
+def replay_heuristic(wav_path, sr=16000):
     """
     Return:
     - suspicion_score (int)

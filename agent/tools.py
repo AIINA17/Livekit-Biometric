@@ -3,6 +3,8 @@ import time
 import requests
 from livekit.agents.llm import function_tool
 from langchain_community.tools import DuckDuckGoSearchRun
+from agent.state import agent_state
+
 
 # Base URL untuk e-commerce website
 BASE_URL = "https://dummy-ecommerce-tau.vercel.app"
@@ -20,13 +22,15 @@ auth_state = {
     "is_logged_in": False,
     
     # Voice verification state
-    "is_voice_verified": False,
     "voice_score": 0.0,
-    "voice_status": "UNVERIFIED",  # UNVERIFIED, VERIFYING, VERIFIED, DENIED
     "voice_status_detail": "INIT",
     "verify_attempts": 0,
-    "last_verified_at": 0,
+ 
     "voice_feedback_sent": False,
+    "force_verify": False,
+    "_force_started": False,
+    "pending_action": None,
+    "pending_params": None,
 }
 
 
@@ -43,25 +47,28 @@ def is_voice_verified() -> bool:
     Check if voice is currently verified.
     Returns False if never verified or if verification has expired.
     """
-    if not auth_state["is_voice_verified"]:
+    if not agent_state["is_voice_verified"]:
         return False
     
     # Check if verification has expired
     now = time.time()
-    if (now - auth_state["last_verified_at"]) > REVERIFY_INTERVAL:
-        auth_state["is_voice_verified"] = False
-        auth_state["voice_status"] = "EXPIRED"
+    if (now - agent_state["last_verified_at"]) > REVERIFY_INTERVAL:
+        agent_state["is_voice_verified"] = False
+        agent_state["voice_status"] = "EXPIRED"
         return False
     
     return True
 
 
-def require_voice_verification(action_name: str) -> str:
+def require_voice_verification(action_name: str, params=None) -> str:
     """
     Check voice verification status.
     Returns error message if not verified, None if verified.
     """
     if not is_voice_verified():
+        auth_state["force_verify"] = True
+        auth_state["pending_action"] = action_name
+        auth_state["pending_params"] = params or {}
         return (
             f"⚠️ Gue gak bisa {action_name} sekarang karena suara lo belum diverifikasi. "
             "Coba ngomong lagi supaya gue bisa memastikan ini beneran lo."
@@ -172,10 +179,10 @@ async def check_login_status() -> str:
 @function_tool
 async def check_voice_status() -> str:
     """Check current voice verification status."""
-    status = auth_state["voice_status"]
+    status = agent_state["voice_status"]
     
     if is_voice_verified():
-        elapsed = int(time.time() - auth_state["last_verified_at"])
+        elapsed = int(time.time() - agent_state["last_verified_at"])
         remaining = REVERIFY_INTERVAL - elapsed
         return f"✅ Suara lo udah terverifikasi. Verifikasi aktif {remaining} detik lagi."
     elif status == "EXPIRED":
@@ -408,7 +415,9 @@ async def checkout(payment_method: str = "GoPay") -> str:
     ⚠️ This action requires voice verification for security.
     """
     # Check voice verification for sensitive action
-    voice_error = require_voice_verification("checkout")
+    print("DEBUG checkout voice:", agent_state["is_voice_verified"])
+
+    voice_error = require_voice_verification("checkout", {"payment_method": payment_method})
     if voice_error:
         return voice_error
     

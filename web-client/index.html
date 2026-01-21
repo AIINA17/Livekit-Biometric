@@ -1,22 +1,146 @@
 <!doctype html>
 <html lang="id">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Voice Verification</title>
-    </head>
-    <body>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Voice Verification</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a, #020617);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e5e7eb;
+        }
+
+        .card {
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            background: #1e293b;
+            color: #e5e7eb;
+            transition: all 0.2s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background: #334155;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .primary {
+            background: #2563eb;
+        }
+
+        .primary:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+
+        .danger {
+            background: #dc2626;
+        }
+
+        .danger:hover:not(:disabled) {
+            background: #b91c1c;
+        }
+
+        .status {
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+        }
+
+        .status + .status {
+            margin-top: 8px;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
         <h2>🎙️ Voice Verification</h2>
 
-        <button id="start">Start</button>
-        <button id="stop" disabled>Stop</button>
+        <div class="section">
+            <div class="section-title">Rekaman Suara</div>
+            <div class="btn-group">
+                <button id="start" class="primary">Start</button>
+                <button id="stop" disabled>Stop</button>
+            </div>
+        </div>
 
-        <button id="join">Join LiveKit Room</button>
-        <button id="leave" disabled>Leave LiveKit Room</button>
+        <div class="section">
+            <div class="section-title">LiveKit Room</div>
+            <div class="btn-group">
+                <button id="join">Join Room</button>
+                <button id="leave" class="danger" disabled>Leave</button>
+            </div>
+        </div>
 
-        <p id="status-verify">Idle</p>
-        <p id="status-room">Not connected to room</p>
+        <div class="section">
+            <div id="status-verify" class="status">🎧 Status verifikasi: Idle</div>
+            <div id="status-room" class="status">🌐 Status room: Not connected</div>
+        </div>
 
-        <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
-        <script src="app.js"></script>
-    </body>
+        <footer>
+            Voice Auth Demo • LiveKit
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+    <script src="app.js"></script>
+</body>
 </html>

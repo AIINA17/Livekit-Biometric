@@ -62,6 +62,7 @@ from agent.tools import (
 # ================= VOICE VERIFICATION =================
 from voiceverification.services.biometric_service import BiometricService
 from voiceverification.core.replay_heuristic import replay_heuristic
+from voiceverification.core.decision_engine import decide, Decision
 
 
 # ================= CONFIG =================
@@ -201,32 +202,44 @@ async def connect(ctx: agents.JobContext):
                             )
 
                     replay = replay_heuristic(temp_path, SAMPLE_RATE)
-                    if replay["replay_prob"] > 0.7:
-                        state["failures"] += 1
-                        print(f"⚠️ Replay detected (Fail {state['failures']})")
-                        continue
+                    replay_prob = replay["replay_prob"]
 
                     result = biometric.verify_user(temp_path, ENROLL_PATH)
                     score = result.get("final_score", 0.0)
 
+                    decision, reason = decide(
+                        speaker_score=score,
+                        replay_prob=replay_prob
+                    )
+
+                    print(
+                        f"[DECISION] speaker={score:.3f}, "
+                        f"replay={replay_prob:.3f}, "
+                        f"decision={decision.value}, reason={reason}"
+                    )
+
                     # UPDATE GLOBAL AUTH STATE
-                    if score >= VOICE_THRESHOLD:
+                    if decision == Decision.VERIFIED:
                         auth_state["is_voice_verified"] = True
                         auth_state["voice_score"] = score
                         auth_state["voice_status"] = "VERIFIED"
                         auth_state["last_verified_at"] = time.time()
                         state["failures"] = 0
-                        print(f"✅ Voice verified (Score: {score:.2f})")
-                    else:
-                        # Jangan langsung deny, biarkan status sebelumnya (kecuali failure count tinggi)
+                        print("✅ Voice VERIFIED")
+
+                    elif decision == Decision.REPEAT:
                         state["failures"] += 1
-                        print(f"❌ Voice mismatch (Score: {score:.2f}, Fail {state['failures']})")
-                        
+                        auth_state["voice_status"] = "VERIFYING"
+                        print(f"🔁 Voice REPEAT ({state['failures']}/{MAX_FAIL})")
+
+                    else:  # DENIED
+                        state["failures"] += 1
+                        print(f"❌ Voice DENIED ({state['failures']}/{MAX_FAIL})")
+
                         if state["failures"] >= MAX_FAIL:
                             auth_state["is_voice_verified"] = False
                             auth_state["voice_status"] = "DENIED"
-                            # Opsional: Agent menegur user
-                            # await session.say("Maaf, suara lo gak dikenali. Transaksi gue blok dulu.")
+
                             
                 except Exception as e:
                     print(f"Error verification: {e}")

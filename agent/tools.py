@@ -2,33 +2,23 @@ import logging
 import time
 import requests
 from livekit.agents.llm import function_tool
-from langchain_community.tools import DuckDuckGoSearchRun
 
 # Base URL untuk e-commerce website
 BASE_URL = "https://dummy-ecommerce-tau.vercel.app"
 
-# Interval untuk re-verifikasi (3 menit)
-REVERIFY_INTERVAL = 180
-
-# ==================== GLOBAL AUTH STATE ====================
-# State ini akan di-share antara tools dan agent
+# Global state untuk auth (termasuk voice verification)
 auth_state = {
     # Login state
     "token": None,
     "user_id": None,
     "username": None,
     "is_logged_in": False,
-    
     # Voice verification state
     "is_voice_verified": False,
     "voice_score": 0.0,
-    "voice_status": "UNVERIFIED",  # UNVERIFIED, VERIFYING, VERIFIED, DENIED
-    "voice_status_detail": "INIT",
-    "verify_attempts": 0,
-    "last_verified_at": 0,
-    "voice_feedback_sent": False,
+    "voice_status": "NOT_VERIFIED",  # NOT_VERIFIED, VERIFYING, VERIFIED, DENIED
+    "last_verified_at": None,
 }
-
 
 def get_headers():
     """Get headers with auth token if logged in"""
@@ -36,38 +26,6 @@ def get_headers():
     if auth_state["token"]:
         headers["Authorization"] = f"Bearer {auth_state['token']}"
     return headers
-
-
-def is_voice_verified() -> bool:
-    """
-    Check if voice is currently verified.
-    Returns False if never verified or if verification has expired.
-    """
-    if not auth_state["is_voice_verified"]:
-        return False
-    
-    # Check if verification has expired
-    now = time.time()
-    if (now - auth_state["last_verified_at"]) > REVERIFY_INTERVAL:
-        auth_state["is_voice_verified"] = False
-        auth_state["voice_status"] = "EXPIRED"
-        return False
-    
-    return True
-
-
-def require_voice_verification(action_name: str) -> str:
-    """
-    Check voice verification status.
-    Returns error message if not verified, None if verified.
-    """
-    if not is_voice_verified():
-        return (
-            f"⚠️ Gue gak bisa {action_name} sekarang karena suara lo belum diverifikasi. "
-            "Coba ngomong lagi supaya gue bisa memastikan ini beneran lo."
-        )
-    return None
-
 
 # ==================== GENERAL TOOLS ====================
 
@@ -86,16 +44,15 @@ async def get_weather(city: str) -> str:
         logging.error(f"Error retrieving weather for {city}: {e}")
         return f"Weather service error for {city}."
 
-
 @function_tool
 async def web_search(query: str) -> str:
     """Search the internet for information."""
     try:
+        from langchain_community.tools import DuckDuckGoSearchRun
         return DuckDuckGoSearchRun().run(query)
     except Exception as e:
         logging.error(e)
         return "Search error."
-
 
 # ==================== AUTH TOOLS ====================
 
@@ -128,7 +85,6 @@ async def login(username: str, password: str) -> str:
         logging.error(f"Login error: {e}")
         return f"Login error: {str(e)}"
 
-
 @function_tool
 async def register(username: str, password: str) -> str:
     """Register a new account on the e-commerce website."""
@@ -149,17 +105,21 @@ async def register(username: str, password: str) -> str:
         logging.error(f"Register error: {e}")
         return f"Registration error: {str(e)}"
 
-
 @function_tool
 async def logout() -> str:
     """Logout from the e-commerce website."""
     global auth_state
-    auth_state["token"] = None
-    auth_state["user_id"] = None
-    auth_state["username"] = None
-    auth_state["is_logged_in"] = False
+    auth_state = {
+        "token": None,
+        "user_id": None,
+        "username": None,
+        "is_logged_in": False,
+        "is_voice_verified": False,
+        "voice_score": 0.0,
+        "voice_status": "NOT_VERIFIED",
+        "last_verified_at": None,
+    }
     return "Berhasil logout."
-
 
 @function_tool
 async def check_login_status() -> str:
@@ -168,23 +128,30 @@ async def check_login_status() -> str:
         return f"Lo udah login sebagai {auth_state['username']}."
     return "Lo belum login. Login dulu ya buat belanja."
 
-
 @function_tool
 async def check_voice_status() -> str:
     """Check current voice verification status."""
     status = auth_state["voice_status"]
+    score = auth_state["voice_score"]
+    last_verified = auth_state["last_verified_at"]
     
-    if is_voice_verified():
-        elapsed = int(time.time() - auth_state["last_verified_at"])
-        remaining = REVERIFY_INTERVAL - elapsed
-        return f"✅ Suara lo udah terverifikasi. Verifikasi aktif {remaining} detik lagi."
-    elif status == "EXPIRED":
-        return "⚠️ Verifikasi suara lo udah expired. Coba ngomong lagi buat verifikasi ulang."
+    if status == "VERIFIED":
+        time_ago = ""
+        if last_verified:
+            elapsed = time.time() - last_verified
+            if elapsed < 60:
+                time_ago = f" ({int(elapsed)} detik lalu)"
+            elif elapsed < 3600:
+                time_ago = f" ({int(elapsed/60)} menit lalu)"
+            else:
+                time_ago = f" ({int(elapsed/3600)} jam lalu)"
+        return f"✅ Suara lo udah terverifikasi{time_ago}. Score: {score:.2f}"
+    elif status == "VERIFYING":
+        return "🔄 Lagi proses verifikasi suara... Coba ngomong lagi."
     elif status == "DENIED":
-        return "❌ Verifikasi suara gagal. Coba ngomong lagi dengan jelas."
+        return "❌ Verifikasi suara gagal. Suara lo gak cocok dengan data yang terdaftar."
     else:
-        return "⚠️ Suara lo belum diverifikasi. Gue perlu dengar suara lo dulu."
-
+        return "⚠️ Suara lo belum diverifikasi. Terus ngobrol aja, sistem akan otomatis verifikasi."
 
 # ==================== USER TOOLS ====================
 
@@ -213,42 +180,42 @@ async def get_shopkupay_balance() -> str:
         logging.error(f"Get balance error: {e}")
         return f"Error: {str(e)}"
 
-
 # ==================== PRODUCT TOOLS ====================
 
 @function_tool
 async def search_product(
-    query: str,
+    query: str = "",
     category: str = "",
     min_price: int = 0,
     max_price: int = 0,
-    min_rating: float = 0.0,
-    sort_by: str = ""
+    min_rating: float = 0,
+    sort: str = ""
 ) -> str:
     """
-    Search for products in the e-commerce website.
+    Search for products with advanced filters.
     
     Args:
         query: Search keyword for product name
-        category: Filter by category (Electronics, Fashion, Home, Sports, Books)
-        min_price: Minimum price filter
-        max_price: Maximum price filter  
-        min_rating: Minimum rating filter (0.0-5.0)
-        sort_by: Sort results (price_asc, price_desc, rating_desc, newest)
+        category: Filter by category. Options: "Gadget & Tech", "Lifestyle", "Home & Living", "Lain-lain"
+        min_price: Minimum price filter (e.g., 100000 for Rp 100.000)
+        max_price: Maximum price filter (e.g., 5000000 for Rp 5.000.000)
+        min_rating: Minimum rating filter (e.g., 4.0 or 4.5)
+        sort: Sort order. Options: "price_asc" (cheapest first), "price_desc" (expensive first), "rating_desc" (highest rating)
     """
     try:
-        params = {"q": query}
-        
+        params = {}
+        if query:
+            params["q"] = query
         if category:
             params["category"] = category
         if min_price > 0:
-            params["min_price"] = min_price
+            params["min"] = str(min_price)
         if max_price > 0:
-            params["max_price"] = max_price
+            params["max"] = str(max_price)
         if min_rating > 0:
-            params["min_rating"] = min_rating
-        if sort_by:
-            params["sort"] = sort_by
+            params["rating"] = str(min_rating)
+        if sort:
+            params["sort"] = sort
         
         response = requests.get(
             f"{BASE_URL}/api/products",
@@ -261,12 +228,28 @@ async def search_product(
             products = data.get("data", [])
             
             if not products:
-                return f"Gak nemu produk untuk '{query}'."
+                filter_desc = []
+                if query:
+                    filter_desc.append(f"keyword '{query}'")
+                if category:
+                    filter_desc.append(f"kategori '{category}'")
+                if min_price > 0:
+                    filter_desc.append(f"harga min Rp {min_price:,}")
+                if max_price > 0:
+                    filter_desc.append(f"harga max Rp {max_price:,}")
+                if min_rating > 0:
+                    filter_desc.append(f"rating {min_rating}+")
+                
+                filter_str = ", ".join(filter_desc) if filter_desc else "tanpa filter"
+                return f"Gak nemu produk dengan {filter_str}."
             
-            result = f"Ketemu {len(products)} produk untuk '{query}':\n\n"
+            result = f"Ketemu {len(products)} produk:\n\n"
             for p in products[:10]:
                 result += f"• ID: {p['id']} | {p['name']}\n"
-                result += f"  Harga: Rp {p['price']:,} | Rating: {p['rating']}⭐\n\n"
+                result += f"  Harga: Rp {p['price']:,} | Rating: {p['rating']}⭐ | {p['category']}\n\n"
+            
+            if len(products) > 10:
+                result += f"... dan {len(products) - 10} produk lainnya."
             
             return result
         return "Gagal mencari produk."
@@ -274,7 +257,6 @@ async def search_product(
     except Exception as e:
         logging.error(f"Search product error: {e}")
         return f"Search error: {str(e)}"
-
 
 @function_tool
 async def get_product_detail(product_id: int) -> str:
@@ -294,14 +276,14 @@ async def get_product_detail(product_id: int) -> str:
 • Harga: Rp {p['price']:,}
 • Kategori: {p['category']}
 • Rating: {p['rating']}⭐
-• Stok: {p.get('stock', 'N/A')}"""
+• Stok: {p.get('stock', 'N/A')}
+• Deskripsi: {p.get('description', '-')}"""
         
         return "Produk tidak ditemukan."
             
     except Exception as e:
         logging.error(f"Get product error: {e}")
         return f"Error: {str(e)}"
-
 
 # ==================== CART TOOLS ====================
 
@@ -332,10 +314,9 @@ async def add_to_cart(product_id: int, quantity: int = 1) -> str:
         logging.error(f"Add to cart error: {e}")
         return f"Error: {str(e)}"
 
-
 @function_tool
 async def get_cart() -> str:
-    """Get current items in the shopping cart."""
+    """Get current items in the shopping cart with cart IDs for selective checkout."""
     if not auth_state["is_logged_in"]:
         return "Lo harus login dulu buat liat keranjang."
     
@@ -356,16 +337,16 @@ async def get_cart() -> str:
             result = f"Keranjang lo ({len(items)} item):\n\n"
             total = 0
             
-            for item in items:
+            for idx, item in enumerate(items, 1):
                 product = item.get("products", {})
                 subtotal = product.get("price", 0) * item.get("quantity", 1)
                 total += subtotal
                 
-                result += f"• {product.get('name', 'Unknown')}\n"
-                result += f"  {item.get('quantity')}x Rp {product.get('price', 0):,} = Rp {subtotal:,}\n"
-                result += f"  (Cart ID: {item.get('id')})\n\n"
+                result += f"{idx}. [Cart ID: {item.get('id')}] {product.get('name', 'Unknown')}\n"
+                result += f"   {item.get('quantity')}x Rp {product.get('price', 0):,} = Rp {subtotal:,}\n\n"
             
-            result += f"Total: Rp {total:,}"
+            result += f"Total semua: Rp {total:,}\n\n"
+            result += "💡 Untuk checkout sebagian, sebutin Cart ID yang mau di-checkout."
             return result
         
         return "Gagal mengambil data keranjang."
@@ -373,7 +354,6 @@ async def get_cart() -> str:
     except Exception as e:
         logging.error(f"Get cart error: {e}")
         return f"Error: {str(e)}"
-
 
 @function_tool
 async def remove_from_cart(cart_id: int) -> str:
@@ -396,22 +376,44 @@ async def remove_from_cart(cart_id: int) -> str:
         logging.error(f"Remove from cart error: {e}")
         return f"Error: {str(e)}"
 
+@function_tool
+async def update_cart_quantity(cart_id: int, quantity: int) -> str:
+    """Update quantity of an item in cart."""
+    if not auth_state["is_logged_in"]:
+        return "Lo harus login dulu."
+    
+    try:
+        response = requests.put(
+            f"{BASE_URL}/api/cart",
+            json={"cart_id": cart_id, "quantity": quantity},
+            headers=get_headers(),
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                if quantity <= 0:
+                    return "Item berhasil dihapus dari keranjang!"
+                return f"Quantity berhasil diupdate jadi {quantity}!"
+        
+        return "Gagal update quantity."
+            
+    except Exception as e:
+        logging.error(f"Update cart error: {e}")
+        return f"Error: {str(e)}"
 
-# ==================== CHECKOUT TOOLS (PROTECTED - NEED VOICE VERIFICATION) ====================
+# ==================== CHECKOUT TOOLS ====================
 
 @function_tool
-async def checkout(payment_method: str = "GoPay") -> str:
+async def checkout(payment_method: str = "GoPay", cart_ids: str = "") -> str:
     """
-    Complete the purchase and create an order from cart items.
-    Payment methods: VA_BCA, VA_BRI, VA_Mandiri, GoPay, OVO, ShopeePay, DANA, ShopKuPay
+    Complete the purchase and create an order.
     
-    ⚠️ This action requires voice verification for security.
+    Args:
+        payment_method: Payment method. Options: VA_BCA, VA_BRI, VA_Mandiri, GoPay, OVO, ShopeePay, DANA, ShopKuPay
+        cart_ids: Comma-separated cart IDs to checkout (e.g., "1,2,3"). Leave empty to checkout ALL items.
     """
-    # Check voice verification for sensitive action
-    voice_error = require_voice_verification("checkout")
-    if voice_error:
-        return voice_error
-    
     if not auth_state["is_logged_in"]:
         return "Lo harus login dulu sebelum checkout."
     
@@ -427,10 +429,20 @@ async def checkout(payment_method: str = "GoPay") -> str:
             return "Gagal mengambil data keranjang."
         
         cart_data = cart_response.json()
-        cart_items = cart_data.get("data", [])
+        all_cart_items = cart_data.get("data", [])
         
-        if not cart_items:
+        if not all_cart_items:
             return "Keranjang kosong. Gak ada yang bisa di-checkout."
+        
+        # Filter cart items if cart_ids specified
+        if cart_ids:
+            selected_ids = [int(id.strip()) for id in cart_ids.split(",") if id.strip().isdigit()]
+            cart_items = [item for item in all_cart_items if item.get("id") in selected_ids]
+            
+            if not cart_items:
+                return f"Cart ID {cart_ids} gak ditemukan di keranjang lo."
+        else:
+            cart_items = all_cart_items
         
         # Calculate total
         total = sum(
@@ -477,7 +489,7 @@ async def checkout(payment_method: str = "GoPay") -> str:
             if data.get("success"):
                 order = data.get("data", {})
                 
-                # Clear cart after successful order
+                # Clear only checked out cart items
                 for item in cart_items:
                     requests.delete(
                         f"{BASE_URL}/api/cart?cart_id={item.get('id')}",
@@ -485,8 +497,10 @@ async def checkout(payment_method: str = "GoPay") -> str:
                         timeout=5
                     )
                 
+                items_count = len(cart_items)
                 return f"""🎉 Pesanan berhasil dibuat!
 Order ID: {order.get('id')}
+Jumlah Item: {items_count} produk
 Metode Bayar: {payment_method}
 Total: Rp {order.get('total', 0):,}
 Status: {order.get('status', 'pending')}"""
@@ -498,7 +512,6 @@ Status: {order.get('status', 'pending')}"""
     except Exception as e:
         logging.error(f"Checkout error: {e}")
         return f"Checkout error: {str(e)}"
-
 
 # ==================== ORDER TOOLS ====================
 
@@ -525,11 +538,11 @@ async def get_order_history() -> str:
             result = f"Riwayat pesanan ({len(orders)}):\n\n"
             for order in orders[:10]:
                 status_label = {
-                    "pending": "Menunggu Pembayaran",
-                    "paid": "Dibayar",
-                    "shipped": "Dikirim",
-                    "completed": "Selesai",
-                    "cancelled": "Dibatalkan"
+                    "pending": "⏳ Menunggu Pembayaran",
+                    "paid": "✅ Dibayar",
+                    "shipped": "🚚 Dikirim",
+                    "completed": "✔️ Selesai",
+                    "cancelled": "❌ Dibatalkan"
                 }.get(order.get('status'), order.get('status'))
                 
                 result += f"• Order #{order.get('id')}\n"
@@ -544,7 +557,6 @@ async def get_order_history() -> str:
     except Exception as e:
         logging.error(f"Get orders error: {e}")
         return f"Error: {str(e)}"
-
 
 @function_tool
 async def get_order_detail(order_id: int) -> str:
@@ -567,11 +579,11 @@ async def get_order_detail(order_id: int) -> str:
                 return f"Order #{order_id} gak ditemukan."
             
             status_label = {
-                "pending": "Menunggu Pembayaran",
-                "paid": "Dibayar",
-                "shipped": "Dikirim",
-                "completed": "Selesai",
-                "cancelled": "Dibatalkan"
+                "pending": "⏳ Menunggu Pembayaran",
+                "paid": "✅ Dibayar",
+                "shipped": "🚚 Dikirim",
+                "completed": "✔️ Selesai",
+                "cancelled": "❌ Dibatalkan"
             }.get(order.get('status'), order.get('status'))
             
             result = f"Detail Order #{order.get('id')}:\n\n"
@@ -597,19 +609,9 @@ async def get_order_detail(order_id: int) -> str:
         logging.error(f"Get order detail error: {e}")
         return f"Error: {str(e)}"
 
-
 @function_tool
 async def pay_order(order_id: int) -> str:
-    """
-    Pay for a pending order. Only works for orders with 'pending' status.
-    
-    ⚠️ This action requires voice verification for security.
-    """
-    # Check voice verification for sensitive action
-    voice_error = require_voice_verification("bayar order")
-    if voice_error:
-        return voice_error
-    
+    """Pay for a pending order. Only works for orders with 'pending' status."""
     if not auth_state["is_logged_in"]:
         return "Lo harus login dulu sebelum bayar."
     

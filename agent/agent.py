@@ -1,5 +1,5 @@
 """
-AgentServer + CONNECT MODE (UPDATED WITH ALL TOOLS)
+AgentServer + CONNECT MODE with PER-UTTERANCE Voice Verification
 Compatible with livekit-agents == 1.3.11
 
 Run:
@@ -13,6 +13,7 @@ import time
 import tempfile
 import wave
 import struct
+import json
 
 # ================= PATH FIX =================
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,11 @@ sys.path.insert(0, AGENT_DIR)
 sys.path.insert(0, BASE_DIR)
 
 from dotenv import load_dotenv
-load_dotenv()
+
+ENV_PATH = os.path.join(AGENT_DIR, ".env")
+loaded = load_dotenv(ENV_PATH)
+print(f"DEBUG .env loaded from {ENV_PATH}: {loaded}")
+print("DEBUG LIVEKIT_URL =", os.getenv("LIVEKIT_URL"))
 
 # ================= LIVEKIT =================
 from livekit import agents, rtc
@@ -35,10 +40,9 @@ from livekit.agents import (
 from livekit.plugins import google, noise_cancellation
 
 # ================= APP LOGIC =================
-from agent.prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
+from prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
 
-# IMPORT SEMUA TOOLS BARU DISINI
-from agent.tools import (
+from tools import (
     get_weather,
     web_search,
     login,
@@ -52,63 +56,139 @@ from agent.tools import (
     add_to_cart,
     get_cart,
     remove_from_cart,
+    update_cart_quantity,
     checkout,
-    pay_order,
     get_order_history,
     get_order_detail,
-    auth_state, # State global untuk verifikasi suara
+    pay_order,
+    auth_state,
 )
 
 # ================= VOICE VERIFICATION =================
 from voiceverification.services.biometric_service import BiometricService
 from voiceverification.core.replay_heuristic import replay_heuristic
-from voiceverification.core.decision_engine import decide, Decision
 
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000
-VERIFY_INTERVAL = 180
 VOICE_THRESHOLD = 0.1
-MAX_FAIL = 3
 ENROLL_PATH = "voiceverification/dataset/enroll.wav"
 
 
+# ================= GLOBAL AUDIO BUFFER =================
+audio_buffer = []
+audio_buffer_lock = asyncio.Lock()
+
+
+def add_audio_to_buffer(frame):
+    """Tambah audio samples ke buffer - FIXED for memoryview"""
+    global audio_buffer
+    try:
+        # Get the raw data from frame
+        raw_data = frame.data if hasattr(frame, 'data') else frame
+        
+        # Convert memoryview to bytes first!
+        if isinstance(raw_data, memoryview):
+            raw_data = bytes(raw_data)
+        
+        # Now convert bytes to int16 samples
+        if isinstance(raw_data, (bytes, bytearray)):
+            # int16 = 2 bytes per sample
+            num_samples = len(raw_data) // 2
+            samples = struct.unpack(f'{num_samples}h', raw_data)
+            audio_buffer.extend(samples)
+        else:
+            # Fallback: try to convert directly
+            audio_buffer.extend(list(raw_data))
+        
+        # Keep max 10 seconds
+        max_samples = SAMPLE_RATE * 10
+        if len(audio_buffer) > max_samples:
+            audio_buffer = audio_buffer[-max_samples:]
+            
+    except Exception as e:
+        print(f"⚠️ add_audio error: {type(raw_data).__name__} - {e}")
+
+
+# ================= VOICE VERIFIER CLASS =================
+class PerUtteranceVerifier:
+    def __init__(self, biometric: BiometricService):
+        self.biometric = biometric
+    
+    def get_buffer_duration(self) -> float:
+        global audio_buffer
+        return len(audio_buffer) / SAMPLE_RATE
+    
+    def clear_buffer(self):
+        global audio_buffer
+        audio_buffer = []
+    
+    async def verify_utterance(self) -> dict:
+        global audio_buffer
+        
+        async with audio_buffer_lock:
+            buffer_len = len(audio_buffer)
+            buffer_duration = buffer_len / SAMPLE_RATE
+            print(f"🔍 Buffer: {buffer_len} samples ({buffer_duration:.2f}s)")
+            
+            if buffer_duration < 0.5:
+                return {"verified": False, "score": 0.0, "reason": "audio_too_short"}
+            
+            samples_to_use = list(audio_buffer[-SAMPLE_RATE * 3:])
+        
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+                temp_path = f.name
+                with wave.open(temp_path, "wb") as w:
+                    w.setnchannels(1)
+                    w.setsampwidth(2)
+                    w.setframerate(SAMPLE_RATE)
+                    clamped = [max(-32768, min(32767, int(s))) for s in samples_to_use]
+                    w.writeframes(struct.pack(f"{len(clamped)}h", *clamped))
+            
+            print(f"📁 Temp WAV: {len(samples_to_use)} samples")
+            
+            # Replay check
+            replay = replay_heuristic(temp_path, SAMPLE_RATE)
+            replay_prob = replay.get("replay_prob", 0)
+            print(f"🔄 Replay prob: {replay_prob:.3f}")
+            
+            if replay_prob > 0.7:
+                return {"verified": False, "score": 0.0, "reason": "replay_detected"}
+            
+            # Speaker verification
+            result = self.biometric.verify_user(temp_path, ENROLL_PATH)
+            score = result.get("final_score", 0.0)
+            verified = score >= VOICE_THRESHOLD
+            
+            print(f"🎯 Score: {score:.3f}, Threshold: {VOICE_THRESHOLD}, Verified: {verified}")
+            
+            return {"verified": verified, "score": score, "reason": "verified" if verified else "not_matched"}
+            
+        except Exception as e:
+            print(f"❌ Verification error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"verified": False, "score": 0.0, "reason": f"error: {str(e)}"}
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+
 # ================= AGENT =================
-class ShoppingAgent(Agent):
-    def __init__(self):
+class Assistant(Agent):
+    def __init__(self) -> None:
         super().__init__(
             instructions=AGENT_INSTRUCTION,
             tools=[
-                # General
-                get_weather,
-                web_search,
-                # Auth
-                login,
-                register,
-                logout,
-                check_login_status,
-                check_voice_status,
-                # User & Product
-                get_shopkupay_balance,
-                search_product,
-                get_product_detail,
-                # Cart
-                add_to_cart,
-                get_cart,
-                remove_from_cart,
-                # Order & Payment
-                checkout,
-                pay_order,
-                get_order_history,
-                get_order_detail,
+                get_weather, web_search, login, register, logout,
+                check_login_status, check_voice_status, get_shopkupay_balance,
+                search_product, get_product_detail, add_to_cart, get_cart,
+                remove_from_cart, update_cart_quantity, checkout,
+                get_order_history, get_order_detail, pay_order,
             ],
         )
-
-    async def on_agent_start(self, session: AgentSession):
-        # Reset verify status saat agent mulai
-        auth_state["is_voice_verified"] = False
-        # Greeting manual (bisa dihapus jika sudah ada di prompt session)
-        # await session.say("Halo! Gue Happy. Ada yang bisa gue bantu?")
 
 
 # ================= SERVER =================
@@ -117,138 +197,140 @@ server = AgentServer()
 
 @server.rtc_session()
 async def connect(ctx: agents.JobContext):
-    """
-    CONNECT MODE
-    Called by:
-    python -m agent.agent connect --room <room>
-    """
     room = ctx.room
     print(f"🤖 Agent CONNECT ke room: {room.name}")
 
+    # ================= INIT BIOMETRIC =================
+    print("Loading biometric models...")
     biometric = BiometricService(device="cpu")
-    audio_buffer = []
+    verifier = PerUtteranceVerifier(biometric)
+    print("✅ Biometric ready")
     
-    state = {
-        "last_verify": 0,
-        "failures": 0
-    }
+    verification_state = {"last_verified": False, "last_score": 0.0}
+    is_processing = {"value": False}
 
+    # ================= AUDIO CAPTURE =================
+    @room.on("track_subscribed")
+    def on_track_subscribed(track: rtc.Track, publication: rtc.TrackPublication, participant: rtc.RemoteParticipant):
+        if track.kind != rtc.TrackKind.KIND_AUDIO:
+            return
+        if "agent" in participant.identity.lower():
+            return
+        
+        print(f"📡 AUDIO TRACK SUBSCRIBED: {participant.identity}")
+        
+        async def capture_loop():
+            print(f"🔴 STARTING AUDIO CAPTURE...")
+            stream = rtc.AudioStream(track)
+            frame_count = 0
+            try:
+                async for ev in stream:
+                    frame_count += 1
+                    add_audio_to_buffer(ev.frame)
+                    if frame_count % 500 == 0:
+                        dur = len(audio_buffer) / SAMPLE_RATE
+                        print(f"🔊 Frames: {frame_count}, Buffer: {dur:.2f}s")
+            except Exception as e:
+                print(f"❌ Audio capture stopped: {e}")
+        
+        asyncio.create_task(capture_loop())
+
+    # ================= SESSION =================
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(voice="Charon")
     )
 
-    # ================= LOGGING PERCAKAPAN =================
-    @session.on("conversation_item_created")
-    def on_conversation_item(item):
-        """Mencetak percakapan ke console"""
-        text = ""
-        if item.content and hasattr(item.content[0], "text"):
-            text = item.content[0].text
-        elif hasattr(item, "text_content"):
-            text = item.text_content
-            
-        if not text:
+    # ================= HELPERS =================
+    async def send_to_web(verified: bool, score: float, reason: str):
+        data = json.dumps({
+            "type": "voice_verification",
+            "verified": verified,
+            "score": round(score * 100, 1),
+            "reason": reason,
+            "timestamp": time.time()
+        })
+        try:
+            await room.local_participant.publish_data(data.encode('utf-8'), reliable=True)
+            print(f"📤 Web: {score*100:.1f}% {'✅' if verified else '❌'}")
+        except Exception as e:
+            print(f"⚠️ Send failed: {e}")
+
+    async def verify_and_respond(user_text: str):
+        if is_processing["value"]:
             return
+        is_processing["value"] = True
+        
+        try:
+            await asyncio.sleep(0.5)
+            
+            result = await verifier.verify_utterance()
+            verified = result["verified"]
+            score = result["score"]
+            reason = result["reason"]
+            
+            print(f"🔊 RESULT: score={score:.3f}, verified={verified}, reason={reason}")
+            
+            verification_state["last_verified"] = verified
+            verification_state["last_score"] = score
+            auth_state["voice_score"] = score
+            auth_state["is_voice_verified"] = verified
+            auth_state["voice_status"] = "VERIFIED" if verified else "DENIED"
+            auth_state["last_verified_at"] = time.time()
+            
+            await send_to_web(verified, score, reason)
+            
+            if not verified:
+                print("❌ REJECTED - Suara tidak dikenali")
+                await session.interrupt()
+                await asyncio.sleep(0.1)
+                await session.generate_reply(
+                    instructions="TOLAK. Bilang HANYA: 'Maaf, saya tidak mengenal suara Anda.' JANGAN jawab pertanyaan."
+                )
+            else:
+                print("✅ VERIFIED")
+                text_lower = user_text.lower()
+                if any(kw in text_lower for kw in ["matikan", "stop", "berhenti", "bye", "dadah"]):
+                    await session.aclose()
+        finally:
+            is_processing["value"] = False
 
-        if item.role == "user":
-            print(f"\n🎤 User: {text}")
-        elif item.role == "assistant":
-            print(f"🤖 Agent: {text}")
+    # ================= EVENTS =================
+    @session.on("user_input_transcribed")
+    def on_user_transcribed(event):
+        if not getattr(event, 'is_final', True):
+            return
+        text = getattr(event, 'transcript', '')
+        if text:
+            print(f"\n🎤 USER: {text}")
+            asyncio.create_task(verify_and_respond(text))
 
-    # ================= START SESSION =================
+    @session.on("agent_speech_transcribed")
+    def on_agent_transcribed(event):
+        text = getattr(event, 'transcript', '')
+        if text:
+            print(f"🤖 AGENT: {text}")
+
+    # ================= START =================
     await session.start(
         room=room,
-        agent=ShoppingAgent(),
+        agent=Assistant(),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
-                noise_cancellation=noise_cancellation.BVC()
-            )
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
         ),
     )
 
-    # 🔑 GREETING LANGSUNG
+    # Check existing participants
+    for participant in room.remote_participants.values():
+        for pub in participant.track_publications.values():
+            if pub.kind == rtc.TrackKind.KIND_AUDIO and pub.track:
+                print(f"📡 Found existing audio: {participant.identity}")
+                on_track_subscribed(pub.track, pub, participant)
+
+    print("🎙️ Sending greeting...")
     await session.generate_reply(instructions=SESSION_INSTRUCTION)
 
-    # ================= AUDIO TRACK (VOICE VERIF) =================
-    @room.on("track_subscribed")
-    def on_track(track: rtc.Track, *_):
-        if track.kind != rtc.TrackKind.KIND_AUDIO:
-            return
 
-        async def audio_loop():
-            stream = rtc.AudioStream(track)
-            async for ev in stream:
-                audio_buffer.extend(ev.frame.data)
-                audio_buffer[:] = audio_buffer[-SAMPLE_RATE * 5 :]
-
-                now = time.time()
-                if now - state["last_verify"] < VERIFY_INTERVAL:
-                    continue
-                if len(audio_buffer) < SAMPLE_RATE * 2:
-                    continue
-
-                state["last_verify"] = now
-
-                temp_path = ""
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-                        temp_path = f.name
-                        with wave.open(temp_path, "wb") as w:
-                            w.setnchannels(1)
-                            w.setsampwidth(2)
-                            w.setframerate(SAMPLE_RATE)
-                            w.writeframes(
-                                struct.pack(f"{len(audio_buffer)}h", *audio_buffer)
-                            )
-
-                    replay = replay_heuristic(temp_path, SAMPLE_RATE)
-                    replay_prob = replay["replay_prob"]
-
-                    result = biometric.verify_user(temp_path, ENROLL_PATH)
-                    score = result.get("final_score", 0.0)
-
-                    decision, reason = decide(
-                        speaker_score=score,
-                        replay_prob=replay_prob
-                    )
-
-                    print(
-                        f"[DECISION] speaker={score:.3f}, "
-                        f"replay={replay_prob:.3f}, "
-                        f"decision={decision.value}, reason={reason}"
-                    )
-
-                    # UPDATE GLOBAL AUTH STATE
-                    if decision == Decision.VERIFIED:
-                        auth_state["is_voice_verified"] = True
-                        auth_state["voice_score"] = score
-                        auth_state["voice_status"] = "VERIFIED"
-                        auth_state["last_verified_at"] = time.time()
-                        state["failures"] = 0
-                        print("✅ Voice VERIFIED")
-
-                    elif decision == Decision.REPEAT:
-                        state["failures"] += 1
-                        auth_state["voice_status"] = "VERIFYING"
-                        print(f"🔁 Voice REPEAT ({state['failures']}/{MAX_FAIL})")
-
-                    else:  # DENIED
-                        state["failures"] += 1
-                        print(f"❌ Voice DENIED ({state['failures']}/{MAX_FAIL})")
-
-                        if state["failures"] >= MAX_FAIL:
-                            auth_state["is_voice_verified"] = False
-                            auth_state["voice_status"] = "DENIED"
-
-                            
-                except Exception as e:
-                    print(f"Error verification: {e}")
-                finally:
-                    if temp_path and os.path.exists(temp_path):
-                        os.unlink(temp_path)
-
-        asyncio.create_task(audio_loop())
-
-# ================= CLI =================
 if __name__ == "__main__":
     cli.run_app(server)

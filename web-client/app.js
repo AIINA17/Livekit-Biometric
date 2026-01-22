@@ -1,122 +1,199 @@
-let recorder;
-let chunks = [];
+/**
+ * Happy AI Assistant - Web Client
+ * Displays real-time voice verification scores from agent
+ */
 
-const startBtn = document.getElementById("start");
-const stopBtn = document.getElementById("stop");
-const statusVerify = document.getElementById("status-verify");
-const statusRoom = document.getElementById("status-room");
+// ================= DOM ELEMENTS =================
 const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
+const statusRoom = document.getElementById("statusRoom");
+const verificationScore = document.getElementById("verificationScore");
+const verificationStatus = document.getElementById("verificationStatus");
+const scoreBar = document.getElementById("scoreBar");
+const connectionDot = document.getElementById("connectionDot");
+const connectionText = document.getElementById("connectionText");
 
-leaveBtn.onclick = async () => {
-    if (window.room) {
-        await window.room.disconnect();
-        statusRoom.innerText = "❌ Left LiveKit room.";
+// ================= STATE =================
+let room = null;
+
+// ================= CONFIG =================
+const CONFIG = {
+    serverUrl: "http://localhost:8000",
+    livekitUrl: "wss://kpina17-lg4g8x6z.livekit.cloud",
+};
+
+// ================= UI HELPERS =================
+function updateVerificationDisplay(data) {
+    const score = data.score; // Already in percentage from agent
+    const verified = data.verified;
+    
+    // Update score text
+    verificationScore.textContent = `${score.toFixed(1)}%`;
+    
+    // Update classes based on verification result
+    verificationScore.className = `verification-score ${verified ? 'verified' : 'denied'}`;
+    
+    // Update status badge
+    verificationStatus.textContent = verified ? '✅ Terverifikasi' : '❌ Tidak Dikenali';
+    verificationStatus.className = `verification-status ${verified ? 'verified' : 'denied'}`;
+    
+    // Update progress bar
+    scoreBar.style.width = `${Math.min(score, 100)}%`;
+    scoreBar.className = `score-bar ${verified ? 'verified' : 'denied'}`;
+    
+    console.log(`🔊 Verification updated: ${score.toFixed(1)}% - ${verified ? 'VERIFIED' : 'DENIED'}`);
+}
+
+function resetVerificationDisplay() {
+    verificationScore.textContent = '--%';
+    verificationScore.className = 'verification-score pending';
+    verificationStatus.textContent = 'Menunggu...';
+    verificationStatus.className = 'verification-status pending';
+    scoreBar.style.width = '0%';
+    scoreBar.className = 'score-bar';
+}
+
+function setConnected(connected) {
+    connectionDot.className = `connection-dot ${connected ? 'connected' : ''}`;
+    connectionText.textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+// ================= LIVEKIT CONNECTION =================
+async function joinLiveKitRoom(token) {
+    console.log("🔌 Connecting to LiveKit...");
+    
+    room = new LivekitClient.Room({
+        adaptiveStream: true,
+        dynacast: true,
+    });
+    
+    // Store globally for leave button
+    window.room = room;
+    
+    // ===== EVENT: Connected =====
+    room.on(LivekitClient.RoomEvent.Connected, () => {
+        console.log("✅ Connected to room:", room.name);
+        statusRoom.textContent = "Connected - Waiting for agent...";
+        setConnected(true);
+    });
+    
+    // ===== EVENT: Disconnected =====
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+        console.log("❌ Disconnected from room");
+        statusRoom.textContent = "Disconnected";
+        setConnected(false);
+        resetVerificationDisplay();
+        
+        joinBtn.disabled = false;
         leaveBtn.disabled = true;
+    });
+    
+    // ===== EVENT: Participant Connected =====
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+        console.log("👤 Participant joined:", participant.identity);
+        if (participant.identity.includes('agent')) {
+            statusRoom.textContent = "Connected - Agent ready!";
+        }
+    });
+    
+    // ===== EVENT: Track Subscribed (Audio) =====
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        console.log(`🎵 Track subscribed: ${track.kind} from ${participant.identity}`);
+        
+        if (track.kind === "audio") {
+            const audioElement = track.attach();
+            audioElement.id = `audio-${participant.identity}`;
+            document.body.appendChild(audioElement);
+            audioElement.play().catch((e) => {
+                console.error("Error playing audio:", e);
+            });
+        }
+    });
+    
+    // ===== EVENT: Data Received (Verification Results) =====
+    room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+        try {
+            const message = new TextDecoder().decode(payload);
+            const data = JSON.parse(message);
+            
+            console.log("📨 Data received:", data);
+            
+            // Handle voice verification data
+            if (data.type === "voice_verification") {
+                updateVerificationDisplay(data);
+            }
+        } catch (e) {
+            // Not JSON or parse error, ignore
+            console.log("📨 Raw data received:", payload);
+        }
+    });
+    
+    // ===== CONNECT =====
+    try {
+        await room.connect(CONFIG.livekitUrl, token);
+        console.log("✅ Connected to room:", room.name);
+        
+        // Publish local audio track
+        const audioTrack = await LivekitClient.createLocalAudioTrack({
+            echoCancellation: true,
+            noiseSuppression: true,
+        });
+        await room.localParticipant.publishTrack(audioTrack);
+        console.log("🎤 Local audio published");
+        
+    } catch (error) {
+        console.error("❌ Connection error:", error);
+        statusRoom.textContent = "Connection failed: " + error.message;
+        setConnected(false);
+        joinBtn.disabled = false;
+        leaveBtn.disabled = true;
+    }
+}
+
+// ================= BUTTON HANDLERS =================
+joinBtn.onclick = async () => {
+    joinBtn.disabled = true;
+    statusRoom.textContent = "Getting token...";
+    
+    try {
+        const res = await fetch(`${CONFIG.serverUrl}/join-token`, {
+            method: "POST",
+        });
+        
+        const data = await res.json();
+        console.log("🎫 Token received:", data);
+        
+        if (data.token) {
+            statusRoom.textContent = "Connecting...";
+            await joinLiveKitRoom(data.token);
+            leaveBtn.disabled = false;
+        } else {
+            statusRoom.textContent = "Failed to get token";
+            joinBtn.disabled = false;
+        }
+    } catch (err) {
+        console.error("❌ Error:", err);
+        statusRoom.textContent = "Server error: " + err.message;
         joinBtn.disabled = false;
     }
 };
 
-joinBtn.onclick = async () => {
-    try {
-        const res = await fetch("http://localhost:8000/join-token", {
-            method: "POST",
-        });
-
-        const data = await res.json();
-        console.log("JOIN TOKEN:", data);
-
-        if (data.token) {
-            await joinLiveKitRoom(data.token);
-            statusRoom.innerText = "✅ Joined room, menunggu agent...";
-            joinBtn.disabled = true;
-            leaveBtn.disabled = false;
-        } else {
-            statusRoom.innerText = "❌ Gagal mendapatkan token.";
-        }
-    } catch (err) {
-        console.error(err);
-        statusRoom.innerText = "❌ Server tidak bisa diakses.";
+leaveBtn.onclick = async () => {
+    if (room) {
+        await room.disconnect();
+        room = null;
+        window.room = null;
     }
+    
+    statusRoom.textContent = "Left room";
+    setConnected(false);
+    resetVerificationDisplay();
+    
+    joinBtn.disabled = false;
+    leaveBtn.disabled = true;
 };
 
-startBtn.onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-
-    recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/wav" });
-
-        const form = new FormData();
-        form.append("audio", blob, "voice.wav");
-
-        statusVerify.innerText = "🔍 Verifying...";
-
-        const res = await fetch("http://localhost:8000/verify-voice", {
-            method: "POST",
-            body: form,
-        });
-
-        const result = await res.json();
-        console.log("VERIFY RESULT:", result);
-
-        if (result.verified) {
-            statusVerify.innerText = "✅ Verifikasi berhasil!";
-        } else {
-            statusVerify.innerText = "❌ Verifikasi gagal, ulangi bicara";
-        }
-    };
-
-    recorder.start();
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    statusVerify.innerText = "🎤 Recording...";
-};
-
-stopBtn.onclick = () => {
-    recorder.stop();
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-};
-
-async function joinLiveKitRoom(token) {
-    console.log("Joining LiveKit room...");
-
-    const room = new LivekitClient.Room({
-        adaptiveStream: true,
-        dynacast: true,
-        videoCaptureDefaults: {
-            resolution: LivekitClient.VideoPresets.h720.resolution,
-        },
-    });
-
-    window.room = room;
-
-    room.on(LivekitClient.RoomEvent.Connected, () => {
-        console.log("Successfully connected to the room");
-        statusRoom.innerText = "✅ Connected to LiveKit room.";
-    });
-
-    room.on(LivekitClient.RoomEvent.Disconnected, () => {
-        console.log("Disconnected from the room");
-        statusRoom.innerText = "❌ Disconnected from LiveKit room.";
-    });
-
-    room.on("trackSubscribed", (track) => {
-        if (track.kind === "audio") {
-            const audioElement = track.attach();
-            document.body.appendChild(audioElement);
-            audioElement.play().catch((e) => {
-                console.error("Error playing audio track:", e);
-            });
-        }
-    });
-
-    await room.connect("wss://kpina17-lg4g8x6z.livekit.cloud", token);
-
-    const track = await LivekitClient.createLocalAudioTrack();
-    await room.localParticipant.publishTrack(track);
-}
+// ================= INIT =================
+console.log("🚀 Happy AI Client initialized");
+console.log("📡 Server:", CONFIG.serverUrl);
+console.log("🔊 LiveKit:", CONFIG.livekitUrl);

@@ -2,6 +2,8 @@
 import os
 import shutil
 import uuid
+import librosa
+import soundfile as sf
 
 from fastapi import UploadFile
 
@@ -21,3 +23,7 @@ def save_audio(audio: UploadFile) -> str:
         shutil.copyfileobj(audio.file, buffer)
 
     return path
+
+def normalize_audio(path):
+    y, sr = librosa.load(path, sr=16000, mono=True)
+    sf.write(path, y, 16000)

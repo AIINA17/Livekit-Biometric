@@ -9,16 +9,18 @@ class Decision(Enum):
 @dataclass
 class DecisionConfig:
     # Speaker verification thresholds
-    voice_accept: float = 0.15
-    voice_repeat: float = 0.10
+    voice_accept = 0.45
+    voice_repeat = 0.30
+
 
     # Replay attack detection thresholds
-    replay_deny: float = 0.75
-    replay_warn: float = 0.60
+    replay_deny = 0.75
+    replay_warn = 0.60
 
     # Combined score thresholds
-    combined_accept: float = 0.60
-    combined_repeat: float = 0.45
+    combined_accept = 0.52
+    combined_repeat = 0.40
+
 
 def decide(
         speaker_score: float,
@@ -39,7 +41,7 @@ def decide(
     if speaker_score >= config.voice_accept and combined_score >= config.combined_accept:
         return Decision.VERIFIED, "Speaker verified successfully"
     
-    if speaker_score >= config.voice_repeat or combined_score >= config.combined_repeat:
+    if speaker_score >= config.voice_repeat and combined_score >= config.combined_repeat:
         return Decision.REPEAT, "Uncertain verification, please repeat"
     
     return Decision.DENIED, "Speaker verification failed"

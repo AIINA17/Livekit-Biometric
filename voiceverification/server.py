@@ -2,11 +2,14 @@ import os
 import uuid
 import tempfile
 
+import soundfile as sf
+
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
+import librosa
 from livekit.api import AccessToken, VideoGrants
 
 from voiceverification.services.biometric_service import BiometricService
@@ -15,7 +18,9 @@ from voiceverification.core.replay_heuristic import replay_heuristic
 from voiceverification.core.decision_engine import Decision, decide 
 
 
-from voiceverification.utils.audio import save_audio
+from voiceverification.utils.audio import save_audio, normalize_audio
+from voiceverification.utils.csv_log import log_verify
+
 # =========================
 # ENV SETUP
 # =========================
@@ -43,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
 biometric = None
 
 def get_biometric():
@@ -65,7 +71,7 @@ async def startup_event():
     print("🚀 Server is ready.")
 
 # =========================
-# 1️⃣ JOIN TOKEN (NO VERIFICATION)
+#  JOIN TOKEN (NO VERIFICATION)
 # =========================
 @app.post("/join-token")
 async def join_token():
@@ -105,6 +111,7 @@ async def join_token():
 @app.post("/verify-voice")
 async def verify(audio: UploadFile = File(...)):
     wav_path = save_audio(audio)
+    normalize_audio(wav_path)
 
     try:
         speaker = biometric.verify_user(wav_path, ENROLL_PATH)
@@ -118,6 +125,8 @@ async def verify(audio: UploadFile = File(...)):
             replay_prob=replay_prob,
         )
 
+        log_verify(speaker_score, replay_prob, decision)
+
         return {
             "verified": decision == Decision.VERIFIED,
             "status": decision.value,
@@ -125,6 +134,10 @@ async def verify(audio: UploadFile = File(...)):
             "score": speaker_score,
             "replay_prob": replay_prob
         }
+
+    except Exception as e:
+        print(f"❌ Verification error: {e}")
+        raise
 
     finally:
         if os.path.exists(wav_path):
@@ -142,8 +155,4 @@ async def health_check():
         "biometric_service": "OK" if bio_service else "ERROR",
         "enroll_file_exists": os.path.exists(ENROLL_PATH)
     }
-
-# =========================
-# HELPERS
-# =========================
 

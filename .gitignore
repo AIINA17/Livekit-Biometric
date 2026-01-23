@@ -10,3 +10,5 @@ node_modules/
 
 # audio cache folder
 /audio_cache/
+
+/pretrained_models/

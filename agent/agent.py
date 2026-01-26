@@ -53,7 +53,6 @@ from agent.tools import (
     pay_order,
     get_order_history,
     get_order_detail,
-    auth_state, # State global untuk verifikasi suara
 )
 from agent.state import agent_state
 
@@ -63,8 +62,6 @@ VERIFY_INTERVAL = 180 # seconds
 VOICE_THRESHOLD = 0.1
 MAX_VERIFY_ATTEMPTS = 3
 ENROLL_PATH = "voiceverification/dataset/enroll.wav"
-
-
 
 # ================= AGENT =================
 class ShoppingAgent(Agent):
@@ -114,43 +111,10 @@ async def connect(ctx: agents.JobContext):
     print(f"🤖 Agent CONNECT ke room: {room.name}")
 
     session = AgentSession(
-        llm=google.beta.realtime.RealtimeModel(voice="Charon")
-    )
-
-    # ================= VERIFICATION FLOW =================
-            # ================= SEND COMMAND =================
-    async def send_cmd(action:str):
-        payload = json.dumps({
-            "type": "VOICE_CMD",
-            "action": action,
-            "ts": time.time()
-        }).encode("utf-8")
-
-        await room.local_participant.publish_data(
-            payload,
-            reliable=True
+        llm=google.beta.realtime.RealtimeModel(
+            voice="Charon"
         )
-        print(f"📤 Sent VOICE_CMD: {action}")
-    async def start_verification():
-        await asyncio.sleep(5)
-
-        print("🎙️ Memulai proses verifikasi suara...")
-        await send_cmd("START_RECORD")
-
-        await asyncio.sleep(5)
-
-        print("⏹️ Menghentikan perekaman suara untuk verifikasi...")
-        await send_cmd("STOP_RECORD")
-
-        
-    async def retry_verification():
-        """Mengirim perintah verifikasi ulang ke web setelah interval tertentu"""
-        print("🔄 Mengirim perintah verifikasi ulang ke web...")
-        await asyncio.sleep(0.5)
-        await send_cmd("START_RECORD")
-
-        await asyncio.sleep(5)  # Waktu perekaman di web
-        await send_cmd("STOP_RECORD")
+    )
 
     # ================== PARTICIPANT CONNECT =================
     @room.on("participant_connected")
@@ -219,10 +183,12 @@ async def connect(ctx: agents.JobContext):
                 agent_state["voice_status"] = "DENIED"
                 print(f"❌ Verification denied. Attempt: {agent_state['verify_attempts']}")
                 
+                asyncio.sleep(2)
+
                 if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
                     asyncio.create_task(
                         session.generate_reply(
-                            instructions="Maaf, verifikasi suara gagal berulang kali. Sesi akan diakhiri."
+                            instructions="Sorry bro, suara lu ga bisa di verifikasi. Jadi gue ga bisa lanjut bantu lu belanja. Ciao!"
                         )
                     )
                 else:
@@ -234,21 +200,24 @@ async def connect(ctx: agents.JobContext):
     
 
     # ================= LOGGING PERCAKAPAN =================
-    @session.on("conversation_item_created")
-    def on_conversation_item(item):
-        """Mencetak percakapan ke console"""
-        text = ""
-        if item.content and hasattr(item.content[0], "text"):
-            text = item.content[0].text
-        elif hasattr(item, "text_content"):
-            text = item.text_content
-            
-        if not text:
-            return
-
-        if item.role == "user":
+    @session.on("conversation_item_added")
+    def on_conversation_item(event):
+        role = event.item.role
+        text = event.item.text_content
+        
+        if role == "user":
             print(f"\n🎤 User: {text}")
-        elif item.role == "assistant":
+            
+            # Check shutdown command
+            if text:
+                text_lower = text.lower()
+                shutdown_keywords = ["matikan", "stop", "berhenti", "shutdown", "tutup", "end conversation", "bye", "dadah"]
+                if any(keyword in text_lower for keyword in shutdown_keywords):
+                    print("\n⚠️  Shutdown command detected. Closing session...")
+                    import asyncio
+                    asyncio.create_task(session.aclose())
+        
+        elif role == "assistant":
             print(f"🤖 Agent: {text}")
 
     # ================= START SESSION =================
@@ -261,6 +230,35 @@ async def connect(ctx: agents.JobContext):
             )
         ),
     )
+
+# ================= VERIFICATION FLOW =================
+    # ================= SEND COMMAND =================
+    async def send_cmd(action:str):
+        payload = json.dumps({
+            "type": "VOICE_CMD",
+            "action": action,
+            "ts": time.time()
+        }).encode("utf-8")
+
+        await room.local_participant.publish_data(
+            payload,
+            reliable=True
+        )
+        print(f"📤 Sent VOICE_CMD: {action}")
+
+    # ================= START VERIFICATION =================
+    async def start_verification():
+        await asyncio.sleep(1)  # Delay sebelum mulai verifikasi
+
+        print("🎙️ Memulai proses verifikasi suara...")
+        await send_cmd("START_RECORD")
+
+    # ================= RETRY VERIFICATION =================
+    async def retry_verification():
+        """Mengirim perintah verifikasi ulang ke web setelah interval tertentu"""
+        print("🔄 Mengirim perintah verifikasi ulang ke web...")
+        await asyncio.sleep(0.5)
+        await send_cmd("START_RECORD")
 
 
 # ================= CLI =================

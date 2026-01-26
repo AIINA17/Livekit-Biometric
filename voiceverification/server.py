@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import librosa
 from livekit.api import AccessToken, VideoGrants
+import torch
 
 from voiceverification.services.biometric_service import BiometricService
 from voiceverification.core.replay_heuristic import replay_heuristic
@@ -56,7 +57,8 @@ def get_biometric():
     if biometric is None:
         print("🔧 Initializing BiometricService...")
         try:
-            biometric = BiometricService(device="cpu")
+            device = "cuda" if torch.cuda.is_available() else "cpu"     
+            biometric = BiometricService(device=device)
             print("✅ BiometricService initialized")
         except Exception as e:
             print(f"❌ Failed to initialize BiometricService: {e}")

@@ -4,7 +4,7 @@ from voiceverification.core.pitch import pitch_similarity
 from voiceverification.core.speaking_rate import speaking_rate_similarity
 from voiceverification.core.fusion import fuse
 from voiceverification.models.speaker_verifier import SpeakerVerifier
-from voiceverification.core.replay_heuristic import replay_heuristic
+
 
 
 class BiometricService:

@@ -1,28 +1,24 @@
 let recorder;
 let chunks = [];
 
-const startBtn = document.getElementById("start");
-const stopBtn = document.getElementById("stop");
 const statusVerify = document.getElementById("status-verify");
 const statusRoom = document.getElementById("status-room");
 const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
+const scoreDisplay = document.getElementById("score-display");
+const agentAnim = document.getElementById("agent-anim");
 
 let agentReady = false;
 
-leaveBtn.onclick = async () => {
-    if (window.room) {
-        await window.room.disconnect();
-        statusRoom.innerText = "❌ Left LiveKit room.";
-        leaveBtn.disabled = true;
-        joinBtn.disabled = false;
-    }
-};
+const VAD_THRESHOLD = 15; // Ambang batas volume (0-255)
+const SILENCE_DELAY = 1500; // Berapa lama diam (ms) sebelum rekaman berhenti otomatis
+
+// SERVER_URL dari .env 
 
 // ===================== JOIN ROOM =====================
 async function joinRoom() {
     try {
-        const res = await fetch("http://localhost:8000/join-token", {
+        const res = await fetch(`${SERVER_URL}/join-token`, {
             method: "POST",
         });
 
@@ -45,84 +41,17 @@ async function joinRoom() {
 
 joinBtn.onclick = () => joinRoom();
 
-// ===================== RECORDING & VERIFICATION =====================
-startBtn.onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-
-    recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: "audio/wav" });
-
-        const form = new FormData();
-        form.append("audio", blob, "voice.wav");
-
-        statusVerify.innerText = "🔍 Verifying...";
-
-        const res = await fetch("http://localhost:8000/verify-voice", {
-            method: "POST",
-            body: form,
-        });
-
-        const result = await res.json();
-        console.log("VERIFY RESULT:", result);
-
-        if (!result.verified) {
-            statusVerify.innerText = "❌ Verifikasi gagal, ulangi bicara";
-            return;
-        }
-
-        // ✅ VERIFIED
-        statusVerify.innerText = "✅ Verifikasi berhasil!";
-
-        if (!window.room) {
-            console.warn("Not connected to LiveKit room");
-            statusVerify.innerText = "⚠️ Belum terhubung ke room";
-            return;
-        }
-
-        if (!agentReady) {
-            statusVerify.innerText = "⏳ Menunggu agent siap...";
-            console.warn("Agent not ready yet, verification not sent.");
-            return;
-        }
-
-        // Persiapkan data
-        const payload = JSON.stringify({
-            voice_verified: true,
-            score: result.score,
-            ts: Date.now(),
-        });
-
-        // Encode ke Uint8Array (Best Practice untuk LiveKit)
-        const encoder = new TextEncoder();
-        const dataBytes = encoder.encode(payload);
-
-        // Kirim Data
-        try {
-            await window.room.localParticipant.publishData(dataBytes, {
-                reliable: true,
-            });
-            console.log("📤 Voice verification sent to agent:", payload);
-        } catch (e) {
-            console.error("❌ Failed to publish data:", e);
-        }
-    };
-
-    recorder.start();
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    statusVerify.innerText = "🎤 Recording...";
+// ===================== LEAVE ROOM =====================
+leaveBtn.onclick = async () => {
+    if (window.room) {
+        await window.room.disconnect();
+        statusRoom.innerText = "❌ Left LiveKit room.";
+        leaveBtn.disabled = true;
+        joinBtn.disabled = false;
+    }
 };
 
-stopBtn.onclick = () => {
-    recorder.stop();
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-};
-
+// ===================== LIVEKIT ROOM =====================
 async function joinLiveKitRoom(token) {
     console.log("Joining LiveKit room...");
 
@@ -165,9 +94,34 @@ async function joinLiveKitRoom(token) {
         if (track.kind === "audio") {
             const audioElement = track.attach();
             document.body.appendChild(audioElement);
-            audioElement.play().catch((e) => {
-                console.error("Error playing audio track:", e);
-            });
+
+            // Logika Animasi: Deteksi suara dari track agent
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(
+                new MediaStream([track.mediaStreamTrack]),
+            );
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function checkVolume() {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                let average = sum / bufferLength;
+
+                // Jika ada suara di atas ambang batas, tampilkan animasi
+                agentAnim.style.display = average > 5 ? "block" : "none";
+                requestAnimationFrame(checkVolume);
+            }
+            checkVolume();
+
+            audioElement
+                .play()
+                .catch((e) => console.error("Audio play error:", e));
         }
     });
 
@@ -203,11 +157,11 @@ async function handleAgentCommand(payload) {
     }
 
     console.log("📦 ACTION diterima:", msg.action);
-
     if (msg.action === "START_RECORD") {
         console.log("🎙️ Agent meminta mulai rekam otomatis...");
         // Panggil fungsi recording
-        startRecording();
+        // startRecording();
+        startVADRecording();
     }
 
     if (msg.action === "STOP_RECORD") {
@@ -220,7 +174,7 @@ async function handleAgentCommand(payload) {
 async function startRecording() {
     // Cek agar tidak double record
     if (recorder && recorder.state === "recording") {
-        console.warn("⚠️ Sedang merekam, perintah diabaikan.");
+        console.warn("⏸️ Sedang merekam, perintah diabaikan.");
         return;
     }
 
@@ -268,12 +222,17 @@ async function sendForVerification() {
 
     statusVerify.innerText = "🔍 Verifying...";
 
-    const res = await fetch("http://localhost:8000/verify-voice", {
+    const res = await fetch(`${SERVER_URL}/verify-voice`, {
         method: "POST",
         body: form,
     });
 
     const result = await res.json();
+
+    scoreDisplay.style.display = "block";
+    const percentScore = (result.score * 100).toFixed(2); // Asumsi score 0.0 - 1.0
+    scoreDisplay.innerText = `📊 Similarity Score: ${percentScore}%`;
+    scoreDisplay.style.color = result.verified ? "#10b981" : "#ef4444";
 
     statusVerify.innerText = result.verified
         ? "✅ Verified"
@@ -292,4 +251,74 @@ async function sendForVerification() {
     await room.localParticipant.publishData(new TextEncoder().encode(payload), {
         reliable: true,
     });
+}
+
+// ===================== VAD RECORDING =====================
+async function startVADRecording() {
+    if (recorder && recorder.state === "recording") return;
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+        });
+        const audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        recorder = new MediaRecorder(stream);
+        chunks = [];
+        let isSpeaking = false;
+        let silenceStart = performance.now();
+
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+            statusVerify.innerText = "📤 Mengirim rekaman...";
+            await sendForVerification();
+            stream.getTracks().forEach((t) => t.stop());
+            audioContext.close();
+        };
+
+        function checkAudio() {
+            if (recorder.state !== "recording" && isSpeaking === false) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = dataArray.reduce((a, b) => a + b, 0);
+                let average = sum / bufferLength;
+
+                // DETEKSI MULAI BICARA
+                if (average > VAD_THRESHOLD) {
+                    console.log("🗣️ Suara terdeteksi! Mulai merekam...");
+                    isSpeaking = true;
+                    recorder.start();
+                    statusVerify.innerText = "🎙️ Sedang mendengarkan...";
+                }
+            } else if (isSpeaking) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = dataArray.reduce((a, b) => a + b, 0);
+                let average = sum / bufferLength;
+
+                // DETEKSI SELESAI BICARA
+                if (average < VAD_THRESHOLD) {
+                    if (performance.now() - silenceStart > SILENCE_DELAY) {
+                        console.log("🤫 User diam. Berhenti merekam.");
+                        recorder.stop();
+                        return; // Berhenti looping
+                    }
+                } else {
+                    silenceStart = performance.now(); // Reset timer jika ada suara lagi
+                }
+            }
+            requestAnimationFrame(checkAudio);
+        }
+
+        statusVerify.innerText = "🎧 Silakan bicara untuk verifikasi...";
+        checkAudio();
+    } catch (err) {
+        console.error("VAD Error:", err);
+        statusVerify.innerText = "❌ Gagal akses Mic";
+    }
 }

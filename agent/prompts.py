@@ -83,6 +83,13 @@ Think before acting.
 Act carefully.
 Always keep me in control.
 
+
+RULE:
+You MUST NOT call any authentication, account, cart, or payment tools
+unless voice verification has been explicitly confirmed.
+If voice is not verified, instruct the user to verify first.
+
+
 """
 
 SESSION_INSTRUCTION = """

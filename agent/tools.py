@@ -2,8 +2,9 @@ import logging
 import time
 import requests
 from livekit.agents.llm import function_tool
+from livekit.agents import get_current_session
 from langchain_community.tools import DuckDuckGoSearchRun
-from agent.state import agent_state
+# from agent.state import agent_state
 
 
 # Base URL untuk e-commerce website
@@ -42,13 +43,13 @@ def get_headers():
     return headers
 
 
-def is_voice_verified() -> bool:
+# def is_voice_verified() -> bool:
+def is_voice_verified(session) -> bool:
     """
     Check if voice is currently verified.
     Returns False if never verified or if verification has expired.
     """
-    if not agent_state["is_voice_verified"]:
-        return False
+    return session.state.get("is_voice_verified", False)
     
     # Check if verification has expired
     now = time.time()
@@ -177,7 +178,10 @@ async def check_login_status() -> str:
 
 
 @function_tool
-async def check_voice_status() -> str:
+async def check_voice_status(session) -> str:
+    if is_voice_verified(session):
+        return "✅ Suara lo udah terverifikasi."
+    return "⚠️ Suara lo belum diverifikasi."
     """Check current voice verification status."""
     status = agent_state["voice_status"]
     
@@ -417,11 +421,10 @@ async def checkout(payment_method: str = "GoPay") -> str:
     # Check voice verification for sensitive action
     print("DEBUG checkout voice:", agent_state["is_voice_verified"])
 
-    voice_error = require_voice_verification("checkout", {"payment_method": payment_method})
-    if voice_error:
-        return voice_error
+    if not session.state.get("is_voice_verified", False):
+        return "⚠️ Verifikasi suara dulu sebelum checkout."
     
-    if not auth_state["is_logged_in"]:
+    if not auth_state.get("is_logged_in", False):
         return "Lo harus login dulu sebelum checkout."
     
     try:
@@ -495,10 +498,10 @@ async def checkout(payment_method: str = "GoPay") -> str:
                     )
                 
                 return f"""🎉 Pesanan berhasil dibuat!
-Order ID: {order.get('id')}
-Metode Bayar: {payment_method}
-Total: Rp {order.get('total', 0):,}
-Status: {order.get('status', 'pending')}"""
+                        Order ID: {order.get('id')}
+                        Metode Bayar: {payment_method}
+                        Total: Rp {order.get('total', 0):,}
+                        Status: {order.get('status', 'pending')}"""
             else:
                 return f"Checkout gagal: {data.get('message', 'Unknown error')}"
         
@@ -608,18 +611,13 @@ async def get_order_detail(order_id: int) -> str:
 
 
 @function_tool
-async def pay_order(order_id: int) -> str:
-    """
-    Pay for a pending order. Only works for orders with 'pending' status.
-    
-    ⚠️ This action requires voice verification for security.
-    """
-    # Check voice verification for sensitive action
-    voice_error = require_voice_verification("bayar order")
-    if voice_error:
-        return voice_error
-    
-    if not auth_state["is_logged_in"]:
+async def pay_order(session, order_id: int) -> str:
+    # 🔐 CEK VERIFIKASI SUARA
+    if not session.state.get("is_voice_verified", False):
+        return "⚠️ Verifikasi suara dulu sebelum bayar pesanan."
+
+    # 🔐 CEK LOGIN
+    if not auth_state.get("is_logged_in", False):
         return "Lo harus login dulu sebelum bayar."
     
     try:

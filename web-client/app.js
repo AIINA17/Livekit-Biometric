@@ -13,7 +13,8 @@ let agentReady = false;
 const VAD_THRESHOLD = 15; // Ambang batas volume (0-255)
 const SILENCE_DELAY = 1500; // Berapa lama diam (ms) sebelum rekaman berhenti otomatis
 
-// SERVER_URL dari .env 
+// SERVER_URL dari .env
+const SERVER_URL = "http://localhost:8000";
 
 // ===================== JOIN ROOM =====================
 async function joinRoom() {

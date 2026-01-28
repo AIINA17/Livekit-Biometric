@@ -54,7 +54,7 @@ from agent.tools import (
     get_order_history,
     get_order_detail,
 )
-from agent.state import agent_state
+# from agent.state import agent_state
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000
@@ -172,10 +172,13 @@ async def connect(ctx: agents.JobContext):
 
             # Logika Verifikasi
             if decoded_data.get("voice_verified") is True:
-                agent_state["is_voice_verified"] = True
-                agent_state["voice_status"] = "VERIFIED"
-                agent_state["last_verified_at"] = time.time()
-                print("🔐 Voice verification CONFIRMED from web")
+                # agent_state["is_voice_verified"] = True
+                # agent_state["voice_status"] = "VERIFIED"
+                # agent_state["last_verified_at"] = time.time()
+                session.state["is_voice_verified"] = True
+                session.state["last_verified_at"] = time.time()
+                # print("🔐 Voice verification CONFIRMED from web")
+                print("🔐 Voice verification CONFIRMED (session state)")
                 
 
             else:

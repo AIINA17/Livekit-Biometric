@@ -8,6 +8,7 @@ def get_supabase() -> Client:
     if _supabase is None:
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
         if not url or not key:
             raise RuntimeError("Supabase credentials not set")
         _supabase = create_client(url, key)

@@ -11,23 +11,21 @@ from livekit.api import AccessToken, VideoGrants
 import torch
 
 from voiceverification.services.biometric_service import BiometricService
-from voiceverification.core.replay_heuristic import replay_heuristic
 
-from voiceverification.core.decision_engine import Decision, decide 
+
+from voiceverification.core.decision_engine import Decision
 
 
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
 
 from voiceverification.core.trusted_update import TrustedUpdatePolicy
-from voiceverification.core.behavior_scoring import compute_behavior_score, zscores
 
-from voiceverification.db.speaker_repo import load_embedding
 from voiceverification.db.behavior_repo import (
     load_behavior_profile,
     save_behavior_profile
 )
-from voiceverification.db.speaker_repo import save_embedding
+from voiceverification.db.speaker_repo import save_embedding, load_all_embeddings
 
 from voiceverification.auth.auth_utils import get_user_id_from_request
 
@@ -117,81 +115,56 @@ async def join_token():
 # 2️⃣ VOICE VERIFICATION ONLY
 # =========================
 @app.post("/verify-voice")
-async def verify(request: Request, audio: UploadFile = File(...)):
+async def verify_voice(request: Request, audio: UploadFile = File(...)):
     user_id = get_user_id_from_request(request)
 
+    # 1️⃣ Load enrollment & behavior
+    enroll_embeddings = load_all_embeddings(user_id)
+    behavior_profile = load_behavior_profile(user_id)
 
-    enroll_emb = load_embedding(user_id)
-    if enroll_emb is None:
-        return{
+    if not enroll_embeddings:
+        return {
             "status": "ERROR",
             "reason": "No enrollment profile found for user."
         }
 
-    behavior_profile = load_behavior_profile(user_id)
-    
+    # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
 
     try:
         bio = get_biometric()
 
-        speaker = bio.verify_user(wav_path, enroll_emb)
-        replay= replay_heuristic(wav_path)
-
-        speaker_score = speaker["final_score"]
-        replay_prob = replay["replay_prob"]
-
-        decision, reason = decide(
-            speaker_score=speaker_score,
-            replay_prob=replay_prob,
+        # 3️⃣ SINGLE CALL — semua logika di dalam
+        result = bio.verify_against_multiple_embeddings(
+            live_wav=wav_path,
+            enroll_embeddings=enroll_embeddings,
+            enroll_wavs=None,              # optional
+            behavior_profile=behavior_profile,
         )
 
-        log_verify(speaker_score, replay_prob, decision)
-
-        # === Trusted Behavioral Update (SAFE) ===
-        behavior_score = compute_behavior_score(
-            speaker["pitch"],
-            speaker["rate"],
-            behavior_profile
+        # 4️⃣ Logging (optional)
+        log_verify(
+            result["score"],
+            result["spoof_prob"],
+            Decision.VERIFIED if result["verified"] else Decision.DENIED
         )
 
-        z_pitch, z_rate = zscores(
-            speaker["pitch"],
-            speaker["rate"],
-            behavior_profile
-        )
-
-        if policy.should_update(
-            decision=decision.value,
-            speaker_score=speaker_score,
-            spoof_prob=replay_prob,
-            behavior_score=behavior_score,
-            n_samples=behavior_profile.n_samples,
-            z_pitch=z_pitch,
-            z_rate=z_rate,
-            last_update_ts=behavior_profile.last_update_ts, 
-            is_retry=False,
-        ):
-            behavior_profile.update(
-                speaker["pitch"],
-                speaker["rate"],
-                time()
-            )
-            save_behavior_profile(user_id, behavior_profile)
-            
-
+        # 5️⃣ Response ke client / agent
         return {
-            "verified": decision == Decision.VERIFIED,
-            "status": decision.value,
-            "reason": reason,
-            "score": speaker_score,
-            "replay_prob": replay_prob
+            "verified": result["verified"],
+            "status": result["decision"],
+            "reason": result["reason"],
+            "score": result["score"],
+            "spoof_prob": result["spoof_prob"],
+            "best_index": result["best_index"],
+            "all_scores": result["all_scores"],
         }
 
     finally:
         if os.path.exists(wav_path):
             os.remove(wav_path)
+
 
 
 # =========================

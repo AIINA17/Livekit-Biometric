@@ -300,6 +300,7 @@ async function sendForVerification() {
     const payload = JSON.stringify({
         type: "VOICE_RESULT",
         voice_verified: result.verified,
+        decision: result.status,
         score: result.score,
         replay_prob: result.replay_prob,
         ts: Date.now(),

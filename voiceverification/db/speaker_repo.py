@@ -29,3 +29,21 @@ def save_embedding(user_id: str, emb: np.ndarray):
         },
         on_conflict="user_id",
     ).execute()
+
+def load_all_embeddings(user_id: str) -> list[np.ndarray]:
+    sb = get_supabase()
+
+    res = (
+        sb.table("speaker_profiles")
+        .select("embedding")
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    embeddings = []
+    for row in res.data:
+        embeddings.append(np.array(row["embedding"], dtype=np.float32))
+
+    return embeddings
+
+

@@ -171,26 +171,35 @@ async def connect(ctx: agents.JobContext):
             print("📦 Parsed data:", decoded_data)
 
             # Logika Verifikasi
-            if decoded_data.get("voice_verified") is True:
+            decision = decoded_data.get("decision")
+
+            if decision == "VERIFIED":
                 agent_state["is_voice_verified"] = True
                 agent_state["voice_status"] = "VERIFIED"
                 agent_state["last_verified_at"] = time.time()
-                print("🔐 Voice verification CONFIRMED from web")
-                
+                agent_state["verify_attempts"] = 0
+                print("🔐 Voice VERIFIED")
 
-            else:
+            elif decision == "REPEAT":
+                agent_state["is_voice_verified"] = False
+                agent_state["voice_status"] = "REPEAT"
                 agent_state["verify_attempts"] += 1
+                print("🔁 Voice unclear, ask repeat")
+                asyncio.create_task(retry_verification())
+
+            else:  # DENIED
+                agent_state["is_voice_verified"] = False
                 agent_state["voice_status"] = "DENIED"
-                print(f"❌ Verification denied. Attempt: {agent_state['verify_attempts']}")
-                
-                asyncio.sleep(2)
+                agent_state["verify_attempts"] += 1
+                print("❌ Voice DENIED")
 
                 if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
                     asyncio.create_task(
                         session.generate_reply(
-                            instructions="Sorry bro, suara lu ga bisa di verifikasi. Jadi gue ga bisa lanjut bantu lu belanja. Ciao!"
+                            instructions="Maaf, suara kamu gak bisa diverifikasi. Gue gak bisa lanjut."
                         )
                     )
+
                 else:
                     asyncio.create_task(retry_verification())
 

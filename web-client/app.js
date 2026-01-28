@@ -7,13 +7,67 @@ const joinBtn = document.getElementById("join");
 const leaveBtn = document.getElementById("leave");
 const scoreDisplay = document.getElementById("score-display");
 const agentAnim = document.getElementById("agent-anim");
+const enrollBtn = document.getElementById("enroll");
+const loginForm = document.getElementById("login-form");
+const logoutBtn = document.getElementById("logout-btn");
+const loginBtn = document.getElementById("login-btn");
+const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
 
 let agentReady = false;
 
 const VAD_THRESHOLD = 15; // Ambang batas volume (0-255)
 const SILENCE_DELAY = 1500; // Berapa lama diam (ms) sebelum rekaman berhenti otomatis
 
-// SERVER_URL dari .env 
+// SERVER_URL dari .env
+const SERVER_URL = "http://localhost:8000";
+
+const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
+
+if (!window._supabaseClient) {
+    window._supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY,
+    );
+}
+
+// ===================== LOGIN =====================
+
+loginForm.onsubmit = async (e) => {
+    e.preventDefault(); // ⬅️ penting
+
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    const { data, error } =
+        await window._supabaseClient.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    window.supabaseToken = data.session.access_token;
+    console.log("✅ Login berhasil, token:", window.supabaseToken);
+    logoutBtn.disabled = false;
+    loginBtn.disabled = true;
+    statusVerify.innerText = "🔐 Login berhasil";
+};
+// ===================== LOGOUT =====================
+logoutBtn.onclick = async () => {
+    await window._supabaseClient.auth.signOut();
+
+    window.supabaseToken = null;
+
+    loginBtn.disabled = false;
+    logoutBtn.disabled = true;
+
+    statusVerify.innerText = "👋 Logout berhasil";
+    console.log("👋 User logged out");
+};
 
 // ===================== JOIN ROOM =====================
 async function joinRoom() {
@@ -224,6 +278,9 @@ async function sendForVerification() {
 
     const res = await fetch(`${SERVER_URL}/verify-voice`, {
         method: "POST",
+        headers: {
+            Authorization: `Bearer ${window.supabaseToken}`,
+        },
         body: form,
     });
 
@@ -322,3 +379,79 @@ async function startVADRecording() {
         statusVerify.innerText = "❌ Gagal akses Mic";
     }
 }
+
+// ===================== ENROLLMENT =====================
+enrollBtn.onclick = async () => {
+    if (!window.supabaseToken) {
+        alert("Login dulu sebelum enroll");
+        return;
+    }
+
+    statusVerify.innerText = "🎙️ Recording for enrollment...";
+    await startEnrollRecording();
+};
+
+async function startEnrollRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+        });
+        const recorderEnroll = new MediaRecorder(stream);
+        let enrollChunks = [];
+
+        recorderEnroll.ondataavailable = (e) => {
+            if (e.data.size > 0) enrollChunks.push(e.data);
+        };
+
+        recorderEnroll.onstop = async () => {
+            stream.getTracks().forEach((t) => t.stop());
+
+            const blob = new Blob(enrollChunks, { type: "audio/wav" });
+            const form = new FormData();
+            form.append("audio", blob, "enroll.wav");
+
+            statusVerify.innerText = "📤 Uploading enrollment...";
+
+            const res = await fetch(`${SERVER_URL}/enroll-voice`, {
+                method: "POST",
+                headers: {
+                    // ⬇️ PENTING: JWT Supabase harus ada
+                    Authorization: `Bearer ${window.supabaseToken}`,
+                },
+                body: form,
+            });
+
+            const result = await res.json();
+
+            if (result.status === "OK") {
+                statusVerify.innerText = "✅ Enrollment successful";
+            } else {
+                statusVerify.innerText = "❌ Enrollment failed";
+                console.error(result);
+            }
+        };
+
+        recorderEnroll.start();
+        statusVerify.innerText = "🎙️ Speak clearly for enrollment...";
+
+        // stop otomatis setelah 4 detik
+        setTimeout(() => recorderEnroll.stop(), 4000);
+    } catch (err) {
+        console.error("Enroll error:", err);
+        statusVerify.innerText = "❌ Mic access failed";
+    }
+}
+
+async function restoreSession() {
+    const { data } = await window._supabaseClient.auth.getSession();
+
+    if (!data.session) return;
+
+    window.supabaseToken = data.session.access_token;
+    console.log("🔄 Session restored, token refreshed");
+
+    loginBtn.disabled = true;
+    logoutBtn.disabled = false;
+}
+
+restoreSession();

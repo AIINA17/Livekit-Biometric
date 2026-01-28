@@ -1,15 +1,12 @@
 import os
 import uuid
-import tempfile
-
-import soundfile as sf
 
 from dotenv import load_dotenv
+from time import time
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-import librosa
 from livekit.api import AccessToken, VideoGrants
 import torch
 
@@ -22,6 +19,19 @@ from voiceverification.core.decision_engine import Decision, decide
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
 
+from voiceverification.core.trusted_update import TrustedUpdatePolicy
+from voiceverification.core.behavior_scoring import compute_behavior_score, zscores
+
+from voiceverification.db.speaker_repo import load_embedding
+from voiceverification.db.behavior_repo import (
+    load_behavior_profile,
+    save_behavior_profile
+)
+from voiceverification.db.speaker_repo import save_embedding
+
+from voiceverification.auth.auth_utils import get_user_id_from_request
+
+from voiceverification.models.speaker_verifier import SpeakerVerifier
 # =========================
 # ENV SETUP
 # =========================
@@ -33,8 +43,8 @@ LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
 if not LIVEKIT_API_KEY or not LIVEKIT_API_SECRET:
     raise RuntimeError("LIVEKIT credentials not set")
 
-ENROLL_PATH = "voiceverification/dataset/enroll.wav"
 
+policy = TrustedUpdatePolicy()
 
 # =========================
 # APP INIT
@@ -50,19 +60,15 @@ app.add_middleware(
 )
 
 
-biometric = None
+biometric: BiometricService | None = None
 
-def get_biometric():
+def get_biometric() -> BiometricService:
     global biometric
     if biometric is None:
         print("🔧 Initializing BiometricService...")
-        try:
-            device = "cuda" if torch.cuda.is_available() else "cpu"     
-            biometric = BiometricService(device=device)
-            print("✅ BiometricService initialized")
-        except Exception as e:
-            print(f"❌ Failed to initialize BiometricService: {e}")
-            raise
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        biometric = BiometricService(device=device)
+        print("✅ BiometricService initialized")
     return biometric
 
 
@@ -111,12 +117,26 @@ async def join_token():
 # 2️⃣ VOICE VERIFICATION ONLY
 # =========================
 @app.post("/verify-voice")
-async def verify(audio: UploadFile = File(...)):
+async def verify(request: Request, audio: UploadFile = File(...)):
+    user_id = get_user_id_from_request(request)
+
+
+    enroll_emb = load_embedding(user_id)
+    if enroll_emb is None:
+        return{
+            "status": "ERROR",
+            "reason": "No enrollment profile found for user."
+        }
+
+    behavior_profile = load_behavior_profile(user_id)
+    
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
 
     try:
-        speaker = biometric.verify_user(wav_path, ENROLL_PATH)
+        bio = get_biometric()
+
+        speaker = bio.verify_user(wav_path, enroll_emb)
         replay= replay_heuristic(wav_path)
 
         speaker_score = speaker["final_score"]
@@ -129,6 +149,38 @@ async def verify(audio: UploadFile = File(...)):
 
         log_verify(speaker_score, replay_prob, decision)
 
+        # === Trusted Behavioral Update (SAFE) ===
+        behavior_score = compute_behavior_score(
+            speaker["pitch"],
+            speaker["rate"],
+            behavior_profile
+        )
+
+        z_pitch, z_rate = zscores(
+            speaker["pitch"],
+            speaker["rate"],
+            behavior_profile
+        )
+
+        if policy.should_update(
+            decision=decision.value,
+            speaker_score=speaker_score,
+            spoof_prob=replay_prob,
+            behavior_score=behavior_score,
+            n_samples=behavior_profile.n_samples,
+            z_pitch=z_pitch,
+            z_rate=z_rate,
+            last_update_ts=behavior_profile.last_update_ts, 
+            is_retry=False,
+        ):
+            behavior_profile.update(
+                speaker["pitch"],
+                speaker["rate"],
+                time()
+            )
+            save_behavior_profile(user_id, behavior_profile)
+            
+
         return {
             "verified": decision == Decision.VERIFIED,
             "status": decision.value,
@@ -136,10 +188,6 @@ async def verify(audio: UploadFile = File(...)):
             "score": speaker_score,
             "replay_prob": replay_prob
         }
-
-    except Exception as e:
-        print(f"❌ Verification error: {e}")
-        raise
 
     finally:
         if os.path.exists(wav_path):
@@ -154,7 +202,43 @@ async def health_check():
     bio_service = get_biometric()
     return {
         "status": "OK",
-        "biometric_service": "OK" if bio_service else "ERROR",
-        "enroll_file_exists": os.path.exists(ENROLL_PATH)
+        "biometric_service": biometric is not None
     }
 
+# =========================
+# VOICE ENROLLMENT 
+# =========================
+
+@app.post("/enroll-voice")
+async def enroll_voice(request: Request, audio: UploadFile = File(...)):
+    """
+    Enroll user voice:
+    - extract speaker embedding
+    - normalize & save to Supabase
+    - NO decision engine
+    - NO adaptive update
+    """
+    user_id = get_user_id_from_request(request)
+
+    wav_path = save_audio(audio)
+    normalize_audio(wav_path)
+
+
+
+    try:
+        verifier = SpeakerVerifier()
+
+        # 1️⃣ Extract embedding
+        embedding = verifier.extract_embedding(wav_path)
+
+        # 2️⃣ Save to Supabase
+        save_embedding(user_id, embedding)
+
+        return {
+            "status": "OK",
+            "message": "Voice enrollment successful",
+        }
+
+    finally:
+        if os.path.exists(wav_path):
+            os.remove(wav_path)

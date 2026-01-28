@@ -1,0 +1,49 @@
+# voiceverification/db/behavior_repo.py
+from .connection import get_supabase
+from voiceverification.core.behavior_profile import BehaviorProfile
+
+
+def load_behavior_profile(user_id: str) -> BehaviorProfile:
+    sb = get_supabase()
+
+    res = (
+        sb.table("biometric.behavior_profiles")
+        .select("*")
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+
+    if not res.data:
+        return BehaviorProfile()
+
+    row = res.data
+
+    return BehaviorProfile(
+        n_samples=row["n_samples"],
+        mean_pitch=row["mean_pitch"],
+        var_pitch=row["var_pitch"],
+        mean_rate=row["mean_rate"],
+        var_rate=row["var_rate"],
+        last_update_ts=(
+            row["last_update_ts"].timestamp()
+            if row["last_update_ts"] else None
+        ),
+    )
+
+
+def save_behavior_profile(user_id: str, profile: BehaviorProfile):
+    sb = get_supabase()
+
+    sb.table("biometric.behavior_profiles").upsert(
+        {
+            "user_id": user_id,
+            "n_samples": profile.n_samples,
+            "mean_pitch": profile.mean_pitch,
+            "var_pitch": profile.var_pitch,
+            "mean_rate": profile.mean_rate,
+            "var_rate": profile.var_rate,
+            "last_update_ts": profile.last_update_ts,
+        },
+        on_conflict="user_id",
+    ).execute()

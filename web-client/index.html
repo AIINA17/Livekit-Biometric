@@ -159,6 +159,32 @@
         <div class="card">
             <h2>🎙️ Voice Verification</h2>
 
+            <form id="login-form">
+                <input
+                    id="email"
+                    type="email"
+                    placeholder="Email"
+                    autocomplete="email" />
+                <input
+                    id="password"
+                    type="password"
+                    placeholder="Password"
+                    autocomplete="current-password" />
+
+                <div class="btn-group">
+                    <button type="submit" id="login-btn" class="primary">
+                        Login
+                    </button>
+                    <button
+                        type="button"
+                        id="logout-btn"
+                        class="danger"
+                        disabled>
+                        Logout
+                    </button>
+                </div>
+            </form>
+
             <div class="section">
                 <div class="section-title">LiveKit Room</div>
                 <div class="btn-group">
@@ -166,7 +192,12 @@
                     <button id="leave" class="danger" disabled>Leave</button>
                 </div>
             </div>
-
+            <div class="section">
+                <div class="section-title">Voice Enrollment</div>
+                <div class="btn-group">
+                    <button id="enroll" class="primary">🎤 Enroll Voice</button>
+                </div>
+            </div>
             <div
                 id="agent-anim"
                 style="display: none; text-align: center; margin-bottom: 15px">
@@ -205,7 +236,9 @@
             <footer>Voice Auth Demo • LiveKit</footer>
         </div>
 
+        <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
         <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
+        <script src="config.js"></script>
         <script src="app.js"></script>
     </body>
 </html>

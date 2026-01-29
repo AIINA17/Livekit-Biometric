@@ -285,7 +285,10 @@ async def search_product(
 
 @function_tool
 async def get_product_detail(product_id: int) -> str:
-    """Get detailed information about a specific product."""
+    """
+    Get detailed information about a specific product.
+    Returns: name, price, category, rating, stock, description, image URL, and product link.
+    """
     try:
         response = requests.get(f"{BASE_URL}/api/products/{product_id}", timeout=10)
         
@@ -296,12 +299,40 @@ async def get_product_detail(product_id: int) -> str:
             if not p:
                 return f"Produk ID {product_id} gak ditemukan."
             
-            return f"""Detail Produk:
-• Nama: {p['name']}
-• Harga: Rp {p['price']:,}
-• Kategori: {p['category']}
-• Rating: {p['rating']}⭐
-• Stok: {p.get('stock', 'N/A')}"""
+            # Get all product info
+            name = p.get('name', 'Unknown')
+            price = p.get('price', 0)
+            category = p.get('category', '-')
+            rating = p.get('rating', 0)
+            stock = p.get('stock', 0)
+            description = p.get('description', 'Tidak ada deskripsi')
+            image_url = p.get('image_url', f"https://picsum.photos/seed/{product_id}/300/300")
+            
+            # Generate product link
+            product_link = f"{BASE_URL}/product/{product_id}"
+            
+            # Stock status
+            if stock > 10:
+                stock_status = f"✅ Tersedia ({stock} unit)"
+            elif stock > 0:
+                stock_status = f"⚠️ Stok terbatas ({stock} unit)"
+            else:
+                stock_status = "❌ Habis"
+            
+            return f"""📦 Detail Produk:
+
+• Nama: {name}
+• Harga: Rp {price:,}
+• Kategori: {category}
+• Rating: {rating}⭐
+• Stok: {stock_status}
+
+📝 Deskripsi:
+{description}
+
+🖼️ Foto Produk: {image_url}
+
+🔗 Link Produk: {product_link}"""
         
         return "Produk tidak ditemukan."
             

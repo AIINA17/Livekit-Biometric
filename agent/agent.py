@@ -58,7 +58,7 @@ from agent.state import agent_state
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000
-VERIFY_INTERVAL = 180 # seconds
+VERIFY_INTERVAL = 600 # seconds
 VOICE_THRESHOLD = 0.1
 MAX_VERIFY_ATTEMPTS = 3
 ENROLL_PATH = "voiceverification/dataset/enroll.wav"

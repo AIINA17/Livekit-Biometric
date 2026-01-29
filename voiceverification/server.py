@@ -77,7 +77,7 @@ async def startup_event():
 # =========================
 @app.post("/join-token")
 async def join_token():
-    room_name = "test-room"
+    room_name = "roompi"
 
     grant = VideoGrants(
         room_join=True,

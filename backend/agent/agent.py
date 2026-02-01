@@ -220,7 +220,7 @@ async def connect(ctx: agents.JobContext):
             # Check shutdown command
             if text:
                 text_lower = text.lower()
-                 shutdown_keywords = [
+                shutdown_keywords = [
                     # Indonesian
                     "udahan", "udah dulu", "udahan dulu", "sampai jumpa", "sampai ketemu",
                     "dadah", "dah dulu", "cabut dulu", "gue pergi dulu", "pergi dulu",

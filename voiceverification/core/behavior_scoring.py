@@ -1,6 +1,6 @@
 import numpy as np
 
-def zscores(x, mean, std):
+def zscore(x, mean, std):
     """
     Z-score normalization
     """
@@ -10,8 +10,8 @@ def compute_behavior_score(live_pitch, live_rate, profile):
     """
     Compute behavior score based on z-scores of pitch and rate
     """
-    z_pitch = zscores(live_pitch, profile.mean_pitch, profile.std_pitch)
-    z_rate = zscores(live_rate, profile.mean_rate, profile.std_rate)
+    z_pitch = zscore(live_pitch, profile.mean_pitch, profile.std_pitch)
+    z_rate = zscore(live_rate, profile.mean_rate, profile.std_rate)
 
     # Combine z-scores into a behavior score
     score_pitch = np.exp(-0.5 * z_pitch**2)

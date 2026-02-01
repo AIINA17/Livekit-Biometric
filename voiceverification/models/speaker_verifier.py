@@ -16,7 +16,7 @@ class SpeakerVerifier:
 
     def extract_embedding(self, wav_path) -> np.ndarray:
         """
-        Extract speaker embedding from wav
+        Extract speaker embedding from wavn
         """
         self.model.eval()
         with torch.no_grad():
@@ -29,9 +29,9 @@ class SpeakerVerifier:
 
             # 3️⃣ Encode → embedding
             emb = self.model.encode_batch(waveform)
-        emb = emb.squeeze()
-        emb = emb / norm(emb)
-        return emb.cpu().numpy()
+        emb = emb.squeeze().cpu().numpy()
+        emb = emb / np.linalg.norm(emb)
+        return emb
     
     def compare_embeddings(self, emb1: np.ndarray, emb2: np.ndarray) -> float:
         """

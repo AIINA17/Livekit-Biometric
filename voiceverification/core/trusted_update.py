@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from time import time
+from urllib import response
 
 @dataclass
 class TrustedUpdatePolicy:
@@ -26,6 +27,9 @@ class TrustedUpdatePolicy:
             last_update_time: float | None,
             is_retry: bool,
     ) -> bool:
+        
+        if behavior_score is None:
+            return False  # skip update
         # 1. Check if the decision is VERIFIED
         if decision != "VERIFIED":
             return False
@@ -41,7 +45,7 @@ class TrustedUpdatePolicy:
             return False
         
         # 4. Sufficient samples
-        if n_samples < self.min_samples:
+        if n_samples < self.min_samples and n_samples != 0:
             return False
         
         # 5. Retry checks

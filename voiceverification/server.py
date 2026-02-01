@@ -4,7 +4,7 @@ import uuid
 from dotenv import load_dotenv
 from time import time
 
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
@@ -19,17 +19,14 @@ from voiceverification.core.decision_engine import Decision
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
 
-from voiceverification.core.trusted_update import TrustedUpdatePolicy
+from voiceverification.db.behavior_repo import (load_behavior_profile,save_behavior_profile)
 
-from voiceverification.db.behavior_repo import (
-    load_behavior_profile,
-    save_behavior_profile
-)
-from voiceverification.db.speaker_repo import save_embedding, load_all_embeddings
+from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
 
 from voiceverification.auth.auth_utils import get_user_id_from_request
 
 from voiceverification.models.speaker_verifier import SpeakerVerifier
+
 # =========================
 # ENV SETUP
 # =========================
@@ -42,7 +39,6 @@ if not LIVEKIT_API_KEY or not LIVEKIT_API_SECRET:
     raise RuntimeError("LIVEKIT credentials not set")
 
 
-policy = TrustedUpdatePolicy()
 
 # =========================
 # APP INIT
@@ -87,7 +83,7 @@ async def join_token():
     """
 
 
-    room_name = "test-room"
+    room_name = "mainroom"
 
     grant = VideoGrants(
         room_join=True,
@@ -120,13 +116,14 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
 
     # 1️⃣ Load enrollment & behavior
     enroll_embeddings = load_all_embeddings(user_id)
-    behavior_profile = load_behavior_profile(user_id)
-
     if not enroll_embeddings:
         return {
             "status": "ERROR",
             "reason": "No enrollment profile found for user."
         }
+    
+    behavior_profile = load_behavior_profile(user_id)
+
 
     # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
@@ -138,9 +135,9 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
         # 3️⃣ SINGLE CALL — semua logika di dalam
         result = bio.verify_against_multiple_embeddings(
             live_wav=wav_path,
-            enroll_embeddings=enroll_embeddings,
-            enroll_wavs=None,              # optional
+            enroll_embeddings=enroll_embeddings,          # optional
             behavior_profile=behavior_profile,
+            user_id=user_id,
         )
 
         # 4️⃣ Logging (optional)
@@ -192,6 +189,12 @@ async def enroll_voice(request: Request, audio: UploadFile = File(...)):
     - NO adaptive update
     """
     user_id = get_user_id_from_request(request)
+
+    if count_enrollments(user_id) >= 3:
+        raise HTTPException(
+            status_code=400, 
+            detail="Maximum enrollment reached (3)."
+        )
 
     wav_path = save_audio(audio)
     normalize_audio(wav_path)

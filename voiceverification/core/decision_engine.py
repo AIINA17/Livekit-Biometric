@@ -49,60 +49,58 @@ def decide(
     # REPLAY WARNING ZONE
     # ===============================
     if replay_prob >= config.replay_warn:
-        # replay agak tinggi → jangan kasih VERIFIED
         return Decision.REPEAT, "Potential replay attack detected"
 
     # ===============================
     # SCORE FUSION
-    # ===============================
-    combined_score = 0.7 * speaker_score + 0.3 * (1 - replay_prob)
+    # ==============================
 
-    if speaker_score >= config.voice_accept and combined_score >= config.combined_accept:
+    if speaker_score >= config.voice_accept:
         return Decision.VERIFIED, "Speaker verified successfully"
 
-    if speaker_score >= config.voice_repeat and combined_score >= config.combined_repeat:
+    if speaker_score >= config.voice_repeat:
         return Decision.REPEAT, "Uncertain verification, please repeat"
 
     return Decision.DENIED, "Speaker verification failed"
 
 
-def build_decision_config(
-    user: UserProfile | None,
-    base: DecisionConfig = DecisionConfig()
-):
-    cfg = DecisionConfig(
-        voice_accept=base.voice_accept,
-        voice_repeat=base.voice_repeat,
-        replay_deny=base.replay_deny,
-        replay_warn=base.replay_warn,
-        combined_accept=base.combined_accept,
-        combined_repeat=base.combined_repeat,
-    )
+# def build_decision_config(
+#     user: UserProfile | None,
+#     base: DecisionConfig = DecisionConfig()
+# ):
+#     cfg = DecisionConfig(
+#         voice_accept=base.voice_accept,
+#         voice_repeat=base.voice_repeat,
+#         replay_deny=base.replay_deny,
+#         replay_warn=base.replay_warn,
+#         combined_accept=base.combined_accept,
+#         combined_repeat=base.combined_repeat,
+#     )
 
-    # ===============================
-    # GLOBAL MODE
-    # ===============================
-    if user is None or user.n_samples < 5:
-        return cfg
+#     # ===============================
+#     # GLOBAL MODE
+#     # ===============================
+#     if user is None or user.n_samples < 5:
+#         return cfg
 
-    # ===============================
-    # ADAPTIVE MODE
-    # ===============================
-    cfg.voice_accept = max(
-        user.mean_score - 2 * user.std_score,
-        cfg.voice_accept
-    )
+#     # ===============================
+#     # ADAPTIVE MODE
+#     # ===============================
+#     cfg.voice_accept = max(
+#         user.mean_score - 2 * user.std_score,
+#         cfg.voice_accept
+#     )
 
-    cfg.voice_repeat = max(
-        user.mean_score - 3 * user.std_score,
-        cfg.voice_repeat
-    )
+#     cfg.voice_repeat = max(
+#         user.mean_score - 3 * user.std_score,
+#         cfg.voice_repeat
+#     )
 
-    # Replay (dibatasi)
-    cfg.replay_warn = max(
-        0.45,
-        min(cfg.replay_warn, user.mean_replay + 0.1)
-    )
+#     # Replay (dibatasi)
+#     cfg.replay_warn = max(
+#         0.45,
+#         min(cfg.replay_warn, user.mean_replay + 0.1)
+#     )
 
-    return cfg
+#     return cfg
 

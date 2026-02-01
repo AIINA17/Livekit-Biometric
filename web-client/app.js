@@ -15,12 +15,15 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 
 let agentReady = false;
+let vadTimeout = null;
 
-const VAD_THRESHOLD = 15; // Ambang batas volume (0-255)
-const SILENCE_DELAY = 1500; // Berapa lama diam (ms) sebelum rekaman berhenti otomatis
+const VAD_THRESHOLD = 12;
+const SILENCE_DELAY = 1500;
+const VAD_MAX_DURATION = 30000; // 30 detik max recording
 
 // SERVER_URL dari .env
 const SERVER_URL = "http://localhost:8000";
+const LIVEKIT_URL = "wss://kpina17-lg4g8x6z.livekit.cloud"; // Bisa dipindah ke config
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
 
@@ -34,7 +37,7 @@ if (!window._supabaseClient) {
 // ===================== LOGIN =====================
 
 loginForm.onsubmit = async (e) => {
-    e.preventDefault(); // ⬅️ penting
+    e.preventDefault();
 
     const email = emailInput.value;
     const password = passwordInput.value;
@@ -54,8 +57,9 @@ loginForm.onsubmit = async (e) => {
     console.log("✅ Login berhasil, token:", window.supabaseToken);
     logoutBtn.disabled = false;
     loginBtn.disabled = true;
-    statusVerify.innerText = "🔐 Login berhasil";
+    statusVerify.innerText = "🔓 Login berhasil";
 };
+
 // ===================== LOGOUT =====================
 logoutBtn.onclick = async () => {
     await window._supabaseClient.auth.signOut();
@@ -127,12 +131,19 @@ async function joinLiveKitRoom(token) {
     room.on(LivekitClient.RoomEvent.Disconnected, () => {
         console.log("Disconnected from the room");
         statusRoom.innerText = "❌ Disconnected from LiveKit room.";
+
+        // Cleanup saat disconnect
+        if (recorder && recorder.state === "recording") {
+            recorder.stop();
+        }
+        if (vadTimeout) {
+            clearTimeout(vadTimeout);
+        }
     });
 
     room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
         console.log("Participant connected:", participant.identity);
 
-        // 🔥 Anggap agent sudah siap
         agentReady = true;
         statusRoom.innerText = "🤖 Agent siap, silakan verifikasi suara";
     });
@@ -140,6 +151,19 @@ async function joinLiveKitRoom(token) {
     room.on(
         LivekitClient.RoomEvent.DataReceived,
         (payload, participant, kind, topic) => {
+            // The SDK often passes (payload, participant, kind, topic)
+            // instead of a single 'packet' object depending on the version.
+
+            console.log("📦 Data received from:", participant?.identity);
+
+            if (!payload || payload.byteLength === 0) {
+                console.warn("⚠️ Received empty payload");
+                return;
+            }
+
+            // Use the 'topic' argument directly if provided by the emitter
+            if (topic !== "VOICE_CMD") return;
+
             handleAgentCommand(payload);
         },
     );
@@ -167,7 +191,6 @@ async function joinLiveKitRoom(token) {
                 for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
                 let average = sum / bufferLength;
 
-                // Jika ada suara di atas ambang batas, tampilkan animasi
                 agentAnim.style.display = average > 5 ? "block" : "none";
                 requestAnimationFrame(checkVolume);
             }
@@ -179,10 +202,9 @@ async function joinLiveKitRoom(token) {
         }
     });
 
-    await room.connect("wss://kpina17-lg4g8x6z.livekit.cloud", token);
+    await room.connect(LIVEKIT_URL, token);
     console.log("Connected to room. Checking existing participants...");
 
-    // Cek apakah sudah ada participant lain (Agent) di dalam room
     if (room.remoteParticipants.size > 0) {
         console.log(
             `Found ${room.remoteParticipants.size} existing participants.`,
@@ -200,40 +222,56 @@ async function handleAgentCommand(payload) {
     const decoder = new TextDecoder();
     const strData = decoder.decode(payload);
 
-    console.log("📩 DATA FROM AGENT:", strData);
-
-    let msg;
-    try {
-        msg = JSON.parse(strData);
-    } catch (e) {
-        console.error("❌ Gagal parse JSON:", e);
+    // 🔥 FIX PALING PENTING
+    if (!strData || strData.trim().length < 2) {
+        console.warn("⚠️ Ignoring empty/invalid agent payload");
         return;
     }
 
-    console.log("📦 ACTION diterima:", msg.action);
-    if (msg.action === "START_RECORD") {
-        console.log("🎙️ Agent meminta mulai rekam otomatis...");
-        // Panggil fungsi recording
-        // startRecording();
-        startVADRecording();
+    const clean = strData.trim();
+    console.log("📩 DATA FROM AGENT:", clean);
+
+    // Pastikan JSON beneran
+    if (clean[0] !== "{") {
+        console.warn("⚠️ Non-JSON agent payload ignored:", clean);
+        return;
     }
 
-    if (msg.action === "STOP_RECORD") {
-        console.log("⏹️ Agent meminta stop rekam...");
+    let msg;
+    try {
+        msg = JSON.parse(clean);
+    } catch (e) {
+        console.error("❌ JSON parse failed");
+        console.error("RAW:", clean);
+        return;
+    }
+
+    if (msg.type !== "VOICE_CMD") return;
+
+    console.log("📦 ACTION diterima:", msg.action);
+
+    if (msg.action === "START_RECORD") {
+        console.log("🔵 Calling startVADRecording()...");
+        try {
+            await startVADRecording();
+        } catch (err) {
+            console.error("❌ Error starting VAD recording:", err);
+            console.error("Stack trace:", err.stack);
+        }
+    } else if (msg.action === "STOP_RECORD") {
         stopRecording();
+        console.log("✅ Recording stopped by Agent command.");
     }
 }
 
 // ===================== RECORDING =====================
 async function startRecording() {
-    // Cek agar tidak double record
     if (recorder && recorder.state === "recording") {
         console.warn("⏸️ Sedang merekam, perintah diabaikan.");
         return;
     }
 
     try {
-        // Minta akses mic ulang (atau gunakan stream yang sudah ada jika memungkinkan)
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
         });
@@ -245,13 +283,10 @@ async function startRecording() {
             if (e.data.size > 0) chunks.push(e.data);
         };
 
-        // Saat stop, kirim ke server Python untuk verifikasi
         recorder.onstop = async () => {
             console.log("📤 Rekaman selesai, mengirim ke server verifikasi...");
             await sendForVerification();
-
-            // Matikan track agar lampu mic browser mati (opsional)
-            stream.getTracks().forEach((track) => track.stop());
+            recorder.stream.getTracks().forEach((track) => track.stop());
         };
 
         recorder.start();
@@ -270,114 +305,229 @@ function stopRecording() {
 
 // ===================== VERIFY =====================
 async function sendForVerification() {
+    // 🔧 FIX: Validasi token sebelum request
+    if (!window.supabaseToken) {
+        console.error("❌ No auth token available");
+        statusVerify.innerText = "❌ Login dulu sebelum verifikasi";
+        return;
+    }
+
     const blob = new Blob(chunks, { type: "audio/wav" });
     const form = new FormData();
     form.append("audio", blob, "voice.wav");
 
     statusVerify.innerText = "🔍 Verifying...";
 
-    const res = await fetch(`${SERVER_URL}/verify-voice`, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${window.supabaseToken}`,
-        },
-        body: form,
-    });
+    try {
+        const res = await fetch(`${SERVER_URL}/verify-voice`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${window.supabaseToken}`,
+            },
+            body: form,
+        });
 
-    const result = await res.json();
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
 
-    scoreDisplay.style.display = "block";
-    const percentScore = (result.score * 100).toFixed(2); // Asumsi score 0.0 - 1.0
-    scoreDisplay.innerText = `📊 Similarity Score: ${percentScore}%`;
-    scoreDisplay.style.color = result.verified ? "#10b981" : "#ef4444";
+        const result = await res.json();
+        console.log("📊 Verification result:", result);
 
-    statusVerify.innerText = result.verified
-        ? "✅ Verified"
-        : "❌ Verification failed";
+        scoreDisplay.style.display = "block";
+        const percentScore = (result.score * 100).toFixed(2);
+        scoreDisplay.innerText = `📊 Similarity Score: ${percentScore}%`;
+        scoreDisplay.style.color = result.verified ? "#10b981" : "#ef4444";
 
-    if (!agentReady) return;
+        statusVerify.innerText = result.verified
+            ? "✅ Verified"
+            : "❌ Verification failed";
 
-    const payload = JSON.stringify({
-        type: "VOICE_RESULT",
-        voice_verified: result.verified,
-        decision: result.status,
-        score: result.score,
-        replay_prob: result.replay_prob,
-        ts: Date.now(),
-    });
+        // 🔧 FIX: Pastikan room dan agent ready sebelum kirim
+        if (!agentReady || !window.room) {
+            console.warn("⚠️ Agent not ready, skipping data send");
+            return;
+        }
 
-    await room.localParticipant.publishData(new TextEncoder().encode(payload), {
-        reliable: true,
-    });
+        const payload = JSON.stringify({
+            type: "VOICE_RESULT",
+            voice_verified: result.verified,
+            decision: result.status, // Dari server: "VERIFIED", "DENIED", "REPEAT"
+            score: result.score,
+            spoof_prob: result.spoof_prob, // 🔧 FIX: sudah benar
+            ts: Date.now(),
+        });
+
+        await window.room.localParticipant.publishData(
+            new TextEncoder().encode(payload),
+            { reliable: true },
+        );
+
+        console.log("📤 Sent verification result to agent");
+    } catch (err) {
+        console.error("❌ Verification error:", err);
+        statusVerify.innerText = `❌ Error: ${err.message}`;
+    }
 }
 
 // ===================== VAD RECORDING =====================
 async function startVADRecording() {
-    if (recorder && recorder.state === "recording") return;
+    console.log("🎯 startVADRecording() called");
+
+    if (recorder && recorder.state === "recording") {
+        console.warn("⚠️ Recording already in progress");
+        return;
+    }
 
     try {
+        console.log("🎤 Requesting microphone access...");
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
         });
+        console.log("✅ Microphone access granted");
+
         const audioContext = new AudioContext();
+        console.log("✅ AudioContext created");
+
         const source = audioContext.createMediaStreamSource(stream);
         const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 2048;
         source.connect(analyser);
+        console.log("✅ Audio analyser connected");
 
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+        const buffer = new Uint8Array(analyser.fftSize);
 
         recorder = new MediaRecorder(stream);
         chunks = [];
-        let isSpeaking = false;
-        let silenceStart = performance.now();
+        console.log("✅ MediaRecorder initialized");
 
-        recorder.ondataavailable = (e) => chunks.push(e.data);
+        let isRecording = false;
+        let silenceStart = null;
+        let checkInterval = null;
+
+        // === TUNING PARAM ===
+        const START_THRESHOLD = 0.01; // mulai ngomong (LOWERED for testing)
+        const STOP_THRESHOLD = 0.005; // dianggap diam (LOWERED for testing)
+        const SILENCE_DELAY = 1200; // ms
+        const MAX_DURATION = 6000; // ms hard stop
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                chunks.push(e.data);
+                console.log(`📦 Data chunk received: ${e.data.size} bytes`);
+            }
+        };
+
         recorder.onstop = async () => {
-            statusVerify.innerText = "📤 Mengirim rekaman...";
-            await sendForVerification();
+            console.log("🛑 Recording stopped");
+            console.log(`📊 Total chunks: ${chunks.length}`);
+
+            // Stop the check loop
+            if (checkInterval) {
+                cancelAnimationFrame(checkInterval);
+            }
+
+            // Verify voice
+            if (chunks.length > 0) {
+                console.log("✅ Sending for verification...");
+                await sendForVerification();
+            } else {
+                console.warn("⚠️ No audio data recorded");
+                statusVerify.innerText = "⚠️ Tidak ada suara terdeteksi";
+            }
+
+            // Cleanup
             stream.getTracks().forEach((t) => t.stop());
             audioContext.close();
         };
 
-        function checkAudio() {
-            if (recorder.state !== "recording" && isSpeaking === false) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = dataArray.reduce((a, b) => a + b, 0);
-                let average = sum / bufferLength;
+        const startTime = performance.now();
+        let frameCount = 0;
 
-                // DETEKSI MULAI BICARA
-                if (average > VAD_THRESHOLD) {
-                    console.log("🗣️ Suara terdeteksi! Mulai merekam...");
-                    isSpeaking = true;
-                    recorder.start();
-                    statusVerify.innerText = "🎙️ Sedang mendengarkan...";
-                }
-            } else if (isSpeaking) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = dataArray.reduce((a, b) => a + b, 0);
-                let average = sum / bufferLength;
+        function check() {
+            analyser.getByteTimeDomainData(buffer);
 
-                // DETEKSI SELESAI BICARA
-                if (average < VAD_THRESHOLD) {
-                    if (performance.now() - silenceStart > SILENCE_DELAY) {
-                        console.log("🤫 User diam. Berhenti merekam.");
+            // === RMS ===
+            let sum = 0;
+            for (let i = 0; i < buffer.length; i++) {
+                const v = (buffer[i] - 128) / 128;
+                sum += v * v;
+            }
+            const rms = Math.sqrt(sum / buffer.length);
+
+            // Log RMS every 30 frames (~0.5 seconds) for debugging
+            frameCount++;
+            if (frameCount % 30 === 0) {
+                console.log(
+                    `📊 RMS: ${rms.toFixed(4)} | Recording: ${isRecording} | Threshold: ${START_THRESHOLD}`,
+                );
+            }
+
+            // === START ===
+            if (!isRecording && rms > START_THRESHOLD) {
+                console.log(
+                    `🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`,
+                );
+                recorder.start();
+                isRecording = true;
+                silenceStart = null;
+                statusVerify.innerText = "🎙️ Mendengarkan...";
+            }
+
+            // === STOP ===
+            if (isRecording) {
+                if (rms < STOP_THRESHOLD) {
+                    if (!silenceStart) {
+                        silenceStart = performance.now();
+                        console.log(
+                            `🤫 Silence detected (RMS: ${rms.toFixed(4)})`,
+                        );
+                    }
+
+                    const silenceDuration = performance.now() - silenceStart;
+                    if (silenceDuration > SILENCE_DELAY) {
+                        console.log(
+                            `✅ Silence duration: ${silenceDuration.toFixed(0)}ms → STOP`,
+                        );
                         recorder.stop();
-                        return; // Berhenti looping
+                        return; // Exit check loop
                     }
                 } else {
-                    silenceStart = performance.now(); // Reset timer jika ada suara lagi
+                    // Voice detected again, reset silence timer
+                    if (silenceStart) {
+                        console.log(
+                            `🎙️ Voice resumed (RMS: ${rms.toFixed(4)})`,
+                        );
+                    }
+                    silenceStart = null;
                 }
             }
-            requestAnimationFrame(checkAudio);
+
+            // === HARD STOP ===
+            const elapsed = performance.now() - startTime;
+            if (elapsed > MAX_DURATION) {
+                console.warn(
+                    `⏱️ Max duration (${MAX_DURATION}ms) reached → FORCE STOP`,
+                );
+                if (recorder.state === "recording") {
+                    recorder.stop();
+                }
+                return; // Exit check loop
+            }
+
+            checkInterval = requestAnimationFrame(check);
         }
 
-        statusVerify.innerText = "🎧 Silakan bicara untuk verifikasi...";
-        checkAudio();
+        statusVerify.innerText = "🎧 Silakan bicara...";
+        console.log("👂 Starting VAD check loop...");
+        check();
+
+        console.log("✅ VAD recording setup complete!");
     } catch (err) {
-        console.error("VAD Error:", err);
-        statusVerify.innerText = "❌ Gagal akses Mic";
+        console.error("❌ Failed to start VAD recording:", err);
+        console.error("Error details:", err.message);
+        console.error("Error stack:", err.stack);
+        statusVerify.innerText = "❌ Mic access failed: " + err.message;
     }
 }
 
@@ -405,7 +555,7 @@ async function startEnrollRecording() {
         };
 
         recorderEnroll.onstop = async () => {
-            stream.getTracks().forEach((t) => t.stop());
+            recorderEnroll.stream.getTracks().forEach((t) => t.stop());
 
             const blob = new Blob(enrollChunks, { type: "audio/wav" });
             const form = new FormData();
@@ -413,29 +563,36 @@ async function startEnrollRecording() {
 
             statusVerify.innerText = "📤 Uploading enrollment...";
 
-            const res = await fetch(`${SERVER_URL}/enroll-voice`, {
-                method: "POST",
-                headers: {
-                    // ⬇️ PENTING: JWT Supabase harus ada
-                    Authorization: `Bearer ${window.supabaseToken}`,
-                },
-                body: form,
-            });
+            try {
+                const res = await fetch(`${SERVER_URL}/enroll-voice`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${window.supabaseToken}`,
+                    },
+                    body: form,
+                });
 
-            const result = await res.json();
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
 
-            if (result.status === "OK") {
-                statusVerify.innerText = "✅ Enrollment successful";
-            } else {
-                statusVerify.innerText = "❌ Enrollment failed";
-                console.error(result);
+                const result = await res.json();
+
+                if (result.status === "OK") {
+                    statusVerify.innerText = "✅ Enrollment successful";
+                } else {
+                    statusVerify.innerText = "❌ Enrollment failed";
+                    console.error(result);
+                }
+            } catch (err) {
+                console.error("Enroll upload error:", err);
+                statusVerify.innerText = `❌ Upload failed: ${err.message}`;
             }
         };
 
         recorderEnroll.start();
         statusVerify.innerText = "🎙️ Speak clearly for enrollment...";
 
-        // stop otomatis setelah 4 detik
         setTimeout(() => recorderEnroll.stop(), 4000);
     } catch (err) {
         console.error("Enroll error:", err);

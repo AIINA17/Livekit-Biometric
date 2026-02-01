@@ -196,7 +196,7 @@ async def connect(ctx: agents.JobContext):
                 if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
                     asyncio.create_task(
                         session.generate_reply(
-                            instructions="Maaf, suara kamu gak bisa diverifikasi. Gue gak bisa lanjut."
+                            instructions="Sorry bro, suara lu ga bisa di verifikasi. Jadi gue ga bisa lanjut bantu lu belanja. Ciao!"
                         )
                     )
 
@@ -220,14 +220,46 @@ async def connect(ctx: agents.JobContext):
             # Check shutdown command
             if text:
                 text_lower = text.lower()
-                shutdown_keywords = ["matikan", "stop", "berhenti", "shutdown", "tutup", "end conversation", "bye", "dadah"]
+                 shutdown_keywords = [
+                    # Indonesian
+                    "udahan", "udah dulu", "udahan dulu", "sampai jumpa", "sampai ketemu",
+                    "dadah", "dah dulu", "cabut dulu", "gue pergi dulu", "pergi dulu",
+                    "matikan", "tutup", "selesai", "cukup", "sudah cukup",
+                    # English
+                    "bye", "goodbye", "see you", "stop", "end", "quit", "exit",
+                    "that's all", "thats all", "i'm done", "im done", "gotta go"
+                ]
                 if any(keyword in text_lower for keyword in shutdown_keywords):
                     print("\n⚠️  Shutdown command detected. Closing session...")
-                    import asyncio
-                    asyncio.create_task(session.aclose())
+                    asyncio.create_task(handle_goodbye())
         
         elif role == "assistant":
             print(f"🤖 Agent: {text}")
+
+    async def handle_goodbye():
+        """Handle goodbye - say farewell and disconnect from room"""
+        try:
+            # Say goodbye first
+            await session.generate_reply(
+                instructions="Bilang goodbye dengan singkat dan friendly, contoh: 'Oke siap, sampai ketemu lagi ya! Bye!' atau 'Sip, kabarin lagi kalo butuh bantuan. Dadah!'"
+            )
+            
+            # Wait a bit for the goodbye message to be spoken
+            await asyncio.sleep(3)
+            
+            # Close session and disconnect from room
+            print("👋 Closing session and leaving room...")
+            await session.aclose()
+            await room.disconnect()
+            print("✅ Successfully disconnected from room")
+            
+        except Exception as e:
+            print(f"❌ Error during goodbye: {e}")
+            # Force disconnect if error
+            try:
+                await room.disconnect()
+            except:
+                pass
 
     # ================= START SESSION =================
     await session.start(

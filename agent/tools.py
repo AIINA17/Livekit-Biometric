@@ -225,7 +225,7 @@ async def get_shopkupay_balance() -> str:
 
 @function_tool
 async def search_product(
-    query: str,
+    query: str = "",
     category: str = "",
     min_price: int = 0,
     max_price: int = 0,
@@ -236,7 +236,7 @@ async def search_product(
     Search for products in the e-commerce website.
     
     Args:
-        query: Search keyword for product name
+        query: Search keyword for product name (optional - leave empty to get all products)
         category: Filter by category (Electronics, Fashion, Home, Sports, Books)
         min_price: Minimum price filter
         max_price: Maximum price filter  
@@ -244,8 +244,10 @@ async def search_product(
         sort_by: Sort results (price_asc, price_desc, rating_desc, newest)
     """
     try:
-        params = {"q": query}
+        params = {}
         
+        if query:
+            params["q"] = query
         if category:
             params["category"] = category
         if min_price > 0:
@@ -285,7 +287,10 @@ async def search_product(
 
 @function_tool
 async def get_product_detail(product_id: int) -> str:
-    """Get detailed information about a specific product."""
+    """
+    Get detailed information about a specific product.
+    Returns: name, price, category, rating, stock, description, image URL, and product link.
+    """
     try:
         response = requests.get(f"{BASE_URL}/api/products/{product_id}", timeout=10)
         
@@ -296,12 +301,40 @@ async def get_product_detail(product_id: int) -> str:
             if not p:
                 return f"Produk ID {product_id} gak ditemukan."
             
-            return f"""Detail Produk:
-• Nama: {p['name']}
-• Harga: Rp {p['price']:,}
-• Kategori: {p['category']}
-• Rating: {p['rating']}⭐
-• Stok: {p.get('stock', 'N/A')}"""
+            # Get all product info
+            name = p.get('name', 'Unknown')
+            price = p.get('price', 0)
+            category = p.get('category', '-')
+            rating = p.get('rating', 0)
+            stock = p.get('stock', 0)
+            description = p.get('description', 'Tidak ada deskripsi')
+            image_url = p.get('image_url', f"https://picsum.photos/seed/{product_id}/300/300")
+            
+            # Generate product link
+            product_link = f"{BASE_URL}/product/{product_id}"
+            
+            # Stock status
+            if stock > 10:
+                stock_status = f"✅ Tersedia ({stock} unit)"
+            elif stock > 0:
+                stock_status = f"⚠️ Stok terbatas ({stock} unit)"
+            else:
+                stock_status = "❌ Habis"
+            
+            return f"""📦 Detail Produk:
+
+• Nama: {name}
+• Harga: Rp {price:,}
+• Kategori: {category}
+• Rating: {rating}⭐
+• Stok: {stock_status}
+
+📝 Deskripsi:
+{description}
+
+🖼️ Foto Produk: {image_url}
+
+🔗 Link Produk: {product_link}"""
         
         return "Produk tidak ditemukan."
             
@@ -342,7 +375,7 @@ async def add_to_cart(product_id: int, quantity: int = 1) -> str:
 
 @function_tool
 async def get_cart() -> str:
-    """Get current items in the shopping cart."""
+    """Get current items in the shopping cart with cart link."""
     if not auth_state["is_logged_in"]:
         return "Lo harus login dulu buat liat keranjang."
     
@@ -360,7 +393,7 @@ async def get_cart() -> str:
             if not items:
                 return "Keranjang lo kosong."
             
-            result = f"Keranjang lo ({len(items)} item):\n\n"
+            result = f"🛒 Keranjang lo ({len(items)} item):\n\n"
             total = 0
             
             for item in items:
@@ -372,7 +405,8 @@ async def get_cart() -> str:
                 result += f"  {item.get('quantity')}x Rp {product.get('price', 0):,} = Rp {subtotal:,}\n"
                 result += f"  (Cart ID: {item.get('id')})\n\n"
             
-            result += f"Total: Rp {total:,}"
+            result += f"💰 Total: Rp {total:,}\n\n"
+            result += f"🔗 Link Keranjang: {BASE_URL}/cart"
             return result
         
         return "Gagal mengambil data keranjang."
@@ -495,10 +529,14 @@ async def checkout(payment_method: str = "GoPay") -> str:
                     )
                 
                 return f"""🎉 Pesanan berhasil dibuat!
-Order ID: {order.get('id')}
-Metode Bayar: {payment_method}
-Total: Rp {order.get('total', 0):,}
-Status: {order.get('status', 'pending')}"""
+
+📦 Order ID: {order.get('id')}
+💳 Metode Bayar: {payment_method}
+💰 Total: Rp {order.get('total', 0):,}
+📋 Status: {order.get('status', 'pending')}
+
+🔗 Link Pesanan: {BASE_URL}/orders/{order.get('id')}
+🔗 Semua Pesanan: {BASE_URL}/orders"""
             else:
                 return f"Checkout gagal: {data.get('message', 'Unknown error')}"
         
@@ -513,7 +551,7 @@ Status: {order.get('status', 'pending')}"""
 
 @function_tool
 async def get_order_history() -> str:
-    """Get order history."""
+    """Get order history with links."""
     if not auth_state["is_logged_in"]:
         return "Lo harus login dulu buat liat riwayat pesanan."
     
@@ -531,21 +569,23 @@ async def get_order_history() -> str:
             if not orders:
                 return "Belum ada pesanan."
             
-            result = f"Riwayat pesanan ({len(orders)}):\n\n"
+            result = f"📋 Riwayat pesanan ({len(orders)}):\n\n"
             for order in orders[:10]:
                 status_label = {
-                    "pending": "Menunggu Pembayaran",
-                    "paid": "Dibayar",
-                    "shipped": "Dikirim",
-                    "completed": "Selesai",
-                    "cancelled": "Dibatalkan"
+                    "pending": "⏳ Menunggu Pembayaran",
+                    "paid": "✅ Dibayar",
+                    "shipped": "🚚 Dikirim",
+                    "completed": "✔️ Selesai",
+                    "cancelled": "❌ Dibatalkan"
                 }.get(order.get('status'), order.get('status'))
                 
                 result += f"• Order #{order.get('id')}\n"
                 result += f"  Total: Rp {order.get('total', 0):,}\n"
                 result += f"  Status: {status_label}\n"
-                result += f"  Metode Bayar: {order.get('payment_method', '-')}\n\n"
+                result += f"  Metode Bayar: {order.get('payment_method', '-')}\n"
+                result += f"  🔗 Link: {BASE_URL}/orders/{order.get('id')}\n\n"
             
+            result += f"🔗 Lihat Semua Pesanan: {BASE_URL}/orders"
             return result
         
         return "Gagal mengambil riwayat pesanan."
@@ -576,27 +616,29 @@ async def get_order_detail(order_id: int) -> str:
                 return f"Order #{order_id} gak ditemukan."
             
             status_label = {
-                "pending": "Menunggu Pembayaran",
-                "paid": "Dibayar",
-                "shipped": "Dikirim",
-                "completed": "Selesai",
-                "cancelled": "Dibatalkan"
+                "pending": "⏳ Menunggu Pembayaran",
+                "paid": "✅ Dibayar",
+                "shipped": "🚚 Dikirim",
+                "completed": "✔️ Selesai",
+                "cancelled": "❌ Dibatalkan"
             }.get(order.get('status'), order.get('status'))
             
-            result = f"Detail Order #{order.get('id')}:\n\n"
-            result += f"Status: {status_label}\n"
-            result += f"Metode Bayar: {order.get('payment_method', '-')}\n"
-            result += f"Total: Rp {order.get('total', 0):,}\n\n"
+            result = f"📦 Detail Order #{order.get('id')}:\n\n"
+            result += f"📋 Status: {status_label}\n"
+            result += f"💳 Metode Bayar: {order.get('payment_method', '-')}\n"
+            result += f"💰 Total: Rp {order.get('total', 0):,}\n\n"
             
-            result += "Produk yang dipesan:\n"
+            result += "🛍️ Produk yang dipesan:\n"
             items = order.get("order_items", [])
             for item in items:
                 subtotal = item.get('price_at_purchase', 0) * item.get('quantity', 1)
                 result += f"• {item.get('name_snapshot', 'Unknown')}\n"
                 result += f"  {item.get('quantity')}x Rp {item.get('price_at_purchase', 0):,} = Rp {subtotal:,}\n"
             
+            result += f"\n🔗 Link Pesanan: {BASE_URL}/orders/{order_id}"
+            
             if order.get('status') == 'pending':
-                result += f"\n⚠️ Pesanan ini belum dibayar. Mau bayar sekarang?"
+                result += f"\n\n⚠️ Pesanan ini belum dibayar. Mau bayar sekarang?"
             
             return result
         

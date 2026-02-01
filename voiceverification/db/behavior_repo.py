@@ -7,10 +7,9 @@ def load_behavior_profile(user_id: str) -> BehaviorProfile:
     sb = get_supabase()
 
     res = (
-        sb.table("biometric.behavior_profiles")
+        sb.table("behavior_profiles")
         .select("*")
         .eq("user_id", user_id)
-        .single()
         .execute()
     )
 
@@ -27,7 +26,7 @@ def load_behavior_profile(user_id: str) -> BehaviorProfile:
         var_rate=row["var_rate"],
         last_update_ts=(
             row["last_update_ts"].timestamp()
-            if row["last_update_ts"] else None
+            if row["last_update_ts"] else 0.0
         ),
     )
 
@@ -35,7 +34,7 @@ def load_behavior_profile(user_id: str) -> BehaviorProfile:
 def save_behavior_profile(user_id: str, profile: BehaviorProfile):
     sb = get_supabase()
 
-    sb.table("biometric.behavior_profiles").upsert(
+    sb.table("behavior_profiles").upsert(
         {
             "user_id": user_id,
             "n_samples": profile.n_samples,

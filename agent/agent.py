@@ -251,7 +251,8 @@ async def connect(ctx: agents.JobContext):
 
         await room.local_participant.publish_data(
             payload,
-            reliable=True
+            reliable=True,
+            topic="VOICE_CMD"
         )
         print(f"📤 Sent VOICE_CMD: {action}")
 

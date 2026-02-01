@@ -22,12 +22,11 @@ def load_embedding(user_id: str) -> np.ndarray | None:
 def save_embedding(user_id: str, emb: np.ndarray):
     sb = get_supabase()
 
-    sb.table("speaker_profiles").upsert(
+    sb.table("speaker_profiles").insert(
         {
             "user_id": user_id,
             "embedding": emb.tolist(),
         },
-        on_conflict="user_id",
     ).execute()
 
 def load_all_embeddings(user_id: str) -> list[np.ndarray]:
@@ -35,8 +34,9 @@ def load_all_embeddings(user_id: str) -> list[np.ndarray]:
 
     res = (
         sb.table("speaker_profiles")
-        .select("embedding")
+        .select("id, embedding, created_at")
         .eq("user_id", user_id)
+        .order("created_at", desc=True)
         .execute()
     )
 
@@ -47,3 +47,12 @@ def load_all_embeddings(user_id: str) -> list[np.ndarray]:
     return embeddings
 
 
+def count_enrollments(user_id: str) -> int:
+    sb = get_supabase()
+    res = (
+        sb.table("speaker_profiles")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return res.count or 0

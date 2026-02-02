@@ -1,20 +1,18 @@
 # LiveKit
-livekit-agents
-livekit-plugins-openai
-livekit-plugins-silero
-livekit-plugins-google
-livekit-plugins-noise-cancellation
-livekit-api
+livekit==1.0.23
+livekit_api==1.1.0
+livekit_blingfire==1.1.0
+livekit_plugins_noise_cancellation==0.2.5
 
 # LLM & tools
 mem0ai
 duckduckgo-search
-langchain_community
-requests
-python-dotenv
+langchain_community==0.4.1
+Requests==2.32.5
+python-dotenv==1.2.1
 
 # FastAPI Server (untuk voice verification endpoint)
-fastapi
+fastapi==0.128.0
 uvicorn[standard]
 python-multipart
 
@@ -29,6 +27,8 @@ sounddevice==0.5.3
 
 # ML utils
 scikit-learn==1.3.2
+matplotlib==3.10.8
+
 
 # Speaker recognition
 speechbrain==0.5.16

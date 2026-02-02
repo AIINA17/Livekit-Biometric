@@ -11,6 +11,9 @@ const enrollBtn = document.getElementById("enroll");
 const loginForm = document.getElementById("login-form");
 const logoutBtn = document.getElementById("logout-btn");
 const loginBtn = document.getElementById("login-btn");
+const signupForm = document.getElementById("signup-form");
+const signupEmail = document.getElementById("signup-email");
+const signupPassword = document.getElementById("signup-password");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 
@@ -161,7 +164,12 @@ function updateChatStatus(isActive) {
 
 // ===================== PRODUCT CARDS DISPLAY =====================
 function addProductCards(products) {
-    if (!products || products.length === 0) return;
+    console.log("🎨 addProductCards called with:", products);
+    
+    if (!products || products.length === 0) {
+        console.warn("⚠️ No products to display");
+        return;
+    }
 
     // Remove empty state if exists
     const emptyState = chatMessages.querySelector(".empty-state");
@@ -185,7 +193,9 @@ function addProductCards(products) {
     const grid = document.createElement("div");
     grid.className = "product-cards-grid";
 
-    products.forEach(product => {
+    products.forEach((product, index) => {
+        console.log(`  - Product ${index + 1}:`, product.name);
+        
         const card = document.createElement("div");
         card.className = "product-card";
         card.onclick = () => {
@@ -228,7 +238,7 @@ function addProductCards(products) {
     // Auto scroll
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    console.log(`✅ Displayed ${products.length} product cards`);
+    console.log(`✅ Successfully displayed ${products.length} product cards`);
 }
 
 
@@ -264,6 +274,40 @@ logoutBtn.onclick = async () => {
     logoutBtn.disabled = true;
     statusVerify.innerText = "👋 Logout berhasil";
     console.log("👋 User logged out");
+};
+
+// ===================== SIGNUP =====================
+signupForm.onsubmit = async (e) => {
+    e.preventDefault();
+
+    const email = signupEmail.value;
+    const password = signupPassword.value;
+
+    const { data, error } =
+        await window._supabaseClient.auth.signUp({
+            email,
+            password,
+        });
+
+    if (error) {
+        alert("❌ Signup gagal: " + error.message);
+        return;
+    }
+
+    // Kalau email confirmation ON
+    if (!data.session) {
+        alert("📧 Cek email kamu untuk verifikasi akun");
+        return;
+    }
+
+    // Kalau email confirmation OFF
+    window.supabaseToken = data.session.access_token;
+
+    loginBtn.disabled = true;
+    logoutBtn.disabled = false;
+
+    statusVerify.innerText = "✅ Signup & login berhasil";
+    console.log("✅ Signup success:", data);
 };
 
 // ===================== JOIN ROOM =====================
@@ -351,18 +395,20 @@ async function joinLiveKitRoom(token) {
         statusRoom.innerText = "🤖 Agent siap, silakan verifikasi suara";
     });
 
+    // ===================== DATA CHANNEL - IMPROVED =====================
     room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
-        console.log("📦 Data received from:", participant?.identity, "Topic:", topic);
+        console.log("📦 Raw data received");
+        console.log("  - Participant:", participant?.identity);
+        console.log("  - Topic:", topic);
+        console.log("  - Payload size:", payload?.byteLength);
 
         if (!payload || payload.byteLength === 0) {
             console.warn("⚠️ Received empty payload");
             return;
         }
 
-        // Accept both VOICE_CMD and PRODUCT_DATA topics
-        if (topic && topic !== "VOICE_CMD" && topic !== "PRODUCT_DATA") return;
-
-        handleAgentCommand(payload);
+        // Process all data regardless of topic (to handle both VOICE_CMD and PRODUCT_DATA)
+        handleAgentCommand(payload, topic);
     });
 
     // ===================== AUDIO TRACK SUBSCRIPTION =====================
@@ -442,8 +488,11 @@ async function joinLiveKitRoom(token) {
     console.log("✅ Setup complete");
 }
 
-// ===================== AGENT COMMAND =====================
-async function handleAgentCommand(payload) {
+// ===================== AGENT COMMAND - IMPROVED =====================
+async function handleAgentCommand(payload, topic) {
+    console.log("🔍 handleAgentCommand called");
+    console.log("  - Topic:", topic);
+    
     const decoder = new TextDecoder();
     const strData = decoder.decode(payload);
 
@@ -454,65 +503,84 @@ async function handleAgentCommand(payload) {
     }
 
     const clean = strData.trim();
-    console.log("📩 DATA FROM AGENT:", clean);
+    console.log("📩 DATA FROM AGENT (first 200 chars):", clean.substring(0, 200));
 
     // Pastikan JSON valid
     if (clean[0] !== "{") {
-        console.warn("⚠️ Non-JSON agent payload ignored:", clean);
+        console.warn("⚠️ Non-JSON agent payload ignored");
         return;
     }
 
     let msg;
     try {
         msg = JSON.parse(clean);
+        console.log("✅ JSON parsed successfully");
+        console.log("  - Type:", msg.type);
+        console.log("  - Keys:", Object.keys(msg));
     } catch (e) {
-        console.error("❌ JSON parse failed");
-        console.error("RAW:", clean);
+        console.error("❌ JSON parse failed:", e.message);
+        console.error("RAW:", clean.substring(0, 500));
         return;
     }
 
-    // Filter by type if needed
-    if (msg.type && msg.type !== "VOICE_CMD") {
-        // Handle product cards
-        if (msg.type === "PRODUCT_CARDS" && msg.products) {
-            console.log("📦 Received product cards:", msg.products.length);
-            addProductCards(msg.products);
-            return;
-        }
+    // ========== HANDLE PRODUCT CARDS ==========
+    if (msg.type === "PRODUCT_CARDS") {
+        console.log("🛍️ PRODUCT_CARDS detected!");
         
-        // Handle other message types
-        if (msg.type === "AGENT_MESSAGE" && msg.text) {
+        if (msg.products && Array.isArray(msg.products)) {
+            console.log(`📦 Received ${msg.products.length} products`);
+            console.log("  - Sample product:", msg.products[0]);
+            
+            // Call addProductCards
+            addProductCards(msg.products);
+        } else {
+            console.error("❌ Invalid products data:", msg.products);
+        }
+        return;
+    }
+
+    // ========== HANDLE VOICE_CMD ==========
+    if (msg.type === "VOICE_CMD" || msg.action) {
+        console.log("📦 VOICE_CMD detected - Action:", msg.action);
+
+        if (msg.action === "START_RECORD") {
+            console.log("🔵 Starting VAD recording...");
+            try {
+                await startVADRecording();
+            } catch (err) {
+                console.error("❌ Error starting VAD recording:", err);
+                console.error("Stack trace:", err.stack);
+            }
+        } else if (msg.action === "STOP_RECORD") {
+            stopRecording();
+            console.log("✅ Recording stopped by Agent command.");
+        }
+        return;
+    }
+
+    // ========== HANDLE OTHER MESSAGE TYPES ==========
+    if (msg.type === "AGENT_MESSAGE" && msg.text) {
+        hideTypingIndicator();
+        addMessage("assistant", msg.text);
+        return;
+    }
+    
+    if (msg.type === "AGENT_THINKING") {
+        showTypingIndicator();
+        return;
+    }
+    
+    if (msg.type === "TRANSCRIPTION" && msg.text && msg.text.trim() !== "") {
+        if (msg.role === "user") {
+            addMessage("user", msg.text);
+        } else if (msg.role === "assistant") {
             hideTypingIndicator();
             addMessage("assistant", msg.text);
         }
-        if (msg.type === "AGENT_THINKING") {
-            showTypingIndicator();
-        }
-        if (msg.type === "TRANSCRIPTION" && msg.text && msg.text.trim() !== "") {
-            if (msg.role === "user") {
-                addMessage("user", msg.text);
-            } else if (msg.role === "assistant") {
-                hideTypingIndicator();
-                addMessage("assistant", msg.text);
-            }
-        }
         return;
     }
 
-    console.log("📦 ACTION diterima:", msg.action);
-
-    if (msg.action === "START_RECORD") {
-        console.log("🔵 Calling startVADRecording()...");
-        try {
-            await startVADRecording();
-        } catch (err) {
-            console.error("❌ Error starting VAD recording:", err);
-            console.error("Stack trace:", err.stack);
-        }
-    } else if (msg.action === "STOP_RECORD") {
-        stopRecording();
-        console.log("✅ Recording stopped by Agent command.");
-    }
+    console.log("ℹ️ Unhandled message type:", msg.type);
 }
 
 // ===================== RECORDING =====================

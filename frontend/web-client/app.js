@@ -14,39 +14,235 @@ const loginBtn = document.getElementById("login-btn");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 
+// Chat elements
+const chatMessages = document.getElementById("chat-messages");
+const chatStatus = document.getElementById("chat-status");
+
 let agentReady = false;
+let conversationHistory = [];
 let vadTimeout = null;
 
 const VAD_THRESHOLD = 12;
-const SILENCE_DELAY = 1500;
+const SILENCE_DELAY = 1200;
 const VAD_MAX_DURATION = 30000; // 30 detik max recording
 
 // SERVER_URL dari .env
-const SERVER_URL = "http://localhost:8000";
-const LIVEKIT_URL = "wss://kpina17-lg4g8x6z.livekit.cloud"; // Bisa dipindah ke config
+const SERVER_URL = "http://localhost:8001";
+const LIVEKIT_URL = "wss://kpina17-lg4g8x6z.livekit.cloud";
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG;
 
 if (!window._supabaseClient) {
     window._supabaseClient = window.supabase.createClient(
         SUPABASE_URL,
-        SUPABASE_ANON_KEY,
+        SUPABASE_ANON_KEY
     );
 }
 
-// ===================== LOGIN =====================
+// ===================== CHAT FUNCTIONS - NEW LAYOUT =====================
+function addMessage(role, text, timestamp = new Date()) {
+    // Jangan tambahkan pesan kosong
+    if (!text || text.trim() === "") return;
 
+    // Remove empty state if exists
+    const emptyState = chatMessages.querySelector(".empty-state");
+    if (emptyState) {
+        emptyState.remove();
+    }
+
+    const messageDiv = document.createElement("div");
+    messageDiv.className = `message ${role}`; // Tambahkan class role untuk styling
+
+    const avatar = document.createElement("div");
+    avatar.className = `message-avatar ${role}-avatar`;
+    avatar.textContent = role === "user" ? "👤" : "🤖";
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+
+    const roleSpan = document.createElement("div");
+    roleSpan.className = "message-role";
+    roleSpan.textContent = role === "user" ? "You" : "AI Assistant";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+
+    const textDiv = document.createElement("div");
+    textDiv.className = "message-text";
+    textDiv.textContent = text;
+
+    const timestampDiv = document.createElement("div");
+    timestampDiv.className = "message-timestamp";
+    timestampDiv.textContent = formatTimestamp(timestamp);
+
+    bubble.appendChild(textDiv);
+
+    content.appendChild(roleSpan);
+    content.appendChild(bubble);
+    content.appendChild(timestampDiv);
+
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(content);
+
+    chatMessages.appendChild(messageDiv);
+    
+    // Auto scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Save to history
+    conversationHistory.push({ role, text, timestamp });
+
+    // LOG HANYA SAAT PESAN SELESAI (FINAL)
+    console.log(`[${role.toUpperCase()}]: ${text}`);
+}
+
+function showTypingIndicator() {
+    // Cek apakah sudah ada typing indicator
+    if (document.getElementById("typing-indicator")) return;
+
+    const typingDiv = document.createElement("div");
+    typingDiv.className = "message assistant typing-message";
+    typingDiv.id = "typing-indicator";
+
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar assistant-avatar";
+    avatar.textContent = "🤖";
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+
+    const roleSpan = document.createElement("div");
+    roleSpan.className = "message-role";
+    roleSpan.textContent = "AI Assistant";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+
+    const typingIndicator = document.createElement("div");
+    typingIndicator.className = "typing-indicator";
+    typingIndicator.innerHTML = `
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+    `;
+
+    bubble.appendChild(typingIndicator);
+
+    content.appendChild(roleSpan);
+    content.appendChild(bubble);
+
+    typingDiv.appendChild(avatar);
+    typingDiv.appendChild(content);
+
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const typingIndicator = document.getElementById("typing-indicator");
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+}
+
+function formatTimestamp(date) {
+    const hours = date.getHours().toString().padStart(2, "0");
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+}
+
+function updateChatStatus(isActive) {
+    if (isActive) {
+        chatStatus.classList.add("active");
+    } else {
+        chatStatus.classList.remove("active");
+    }
+}
+
+// ===================== PRODUCT CARDS DISPLAY =====================
+function addProductCards(products) {
+    if (!products || products.length === 0) return;
+
+    // Remove empty state if exists
+    const emptyState = chatMessages.querySelector(".empty-state");
+    if (emptyState) {
+        emptyState.remove();
+    }
+
+    // Create wrapper
+    const wrapper = document.createElement("div");
+    wrapper.className = "product-cards-wrapper";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "product-cards-header";
+    header.innerHTML = `
+        <span class="product-cards-header-text">🛍️ ${products.length} Produk Ditemukan</span>
+    `;
+    wrapper.appendChild(header);
+
+    // Grid container
+    const grid = document.createElement("div");
+    grid.className = "product-cards-grid";
+
+    products.forEach(product => {
+        const card = document.createElement("div");
+        card.className = "product-card";
+        card.onclick = () => {
+            window.open(`https://dummy-ecommerce-tau.vercel.app/product/${product.id}`, '_blank');
+        };
+
+        // Stock status
+        let stockClass = 'in-stock';
+        let stockText = '✓ Tersedia';
+        if (product.stock === 0) {
+            stockClass = 'out-of-stock';
+            stockText = '✗ Habis';
+        } else if (product.stock <= 5) {
+            stockClass = 'low-stock';
+            stockText = `⚠ ${product.stock} unit`;
+        }
+
+        card.innerHTML = `
+            <img class="product-image" 
+                 src="${product.image_url || `https://picsum.photos/seed/${product.id}/300/300`}" 
+                 alt="${product.name}"
+                 loading="lazy">
+            <div class="product-info">
+                <span class="product-category">${product.category || 'Produk'}</span>
+                <div class="product-name">${product.name}</div>
+                <div class="product-meta">
+                    <span class="product-price">Rp ${(product.price || 0).toLocaleString('id-ID')}</span>
+                    <span class="product-rating">⭐ ${product.rating || 0}</span>
+                </div>
+                <div class="product-stock ${stockClass}">${stockText}</div>
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+
+    wrapper.appendChild(grid);
+    chatMessages.appendChild(wrapper);
+
+    // Auto scroll
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    console.log(`✅ Displayed ${products.length} product cards`);
+}
+
+
+// ===================== LOGIN =====================
 loginForm.onsubmit = async (e) => {
     e.preventDefault();
 
     const email = emailInput.value;
     const password = passwordInput.value;
 
-    const { data, error } =
-        await window._supabaseClient.auth.signInWithPassword({
-            email,
-            password,
-        });
+    const { data, error } = await window._supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+    });
 
     if (error) {
         alert(error.message);
@@ -54,21 +250,18 @@ loginForm.onsubmit = async (e) => {
     }
 
     window.supabaseToken = data.session.access_token;
-    console.log("✅ Login berhasil, token:", window.supabaseToken);
+    console.log("✅ Login berhasil");
     logoutBtn.disabled = false;
     loginBtn.disabled = true;
-    statusVerify.innerText = "🔓 Login berhasil";
+    statusVerify.innerText = "🔐 Login berhasil";
 };
 
 // ===================== LOGOUT =====================
 logoutBtn.onclick = async () => {
     await window._supabaseClient.auth.signOut();
-
     window.supabaseToken = null;
-
     loginBtn.disabled = false;
     logoutBtn.disabled = true;
-
     statusVerify.innerText = "👋 Logout berhasil";
     console.log("👋 User logged out");
 };
@@ -88,6 +281,7 @@ async function joinRoom() {
             statusRoom.innerText = "✅ Joined room, menunggu agent...";
             joinBtn.disabled = true;
             leaveBtn.disabled = false;
+            updateChatStatus(true);
         } else {
             statusRoom.innerText = "❌ Gagal mendapatkan token.";
         }
@@ -106,12 +300,21 @@ leaveBtn.onclick = async () => {
         statusRoom.innerText = "❌ Left LiveKit room.";
         leaveBtn.disabled = true;
         joinBtn.disabled = false;
+        updateChatStatus(false);
+        
+        // Cleanup saat disconnect
+        if (recorder && recorder.state === "recording") {
+            recorder.stop();
+        }
+        if (vadTimeout) {
+            clearTimeout(vadTimeout);
+        }
     }
 };
 
 // ===================== LIVEKIT ROOM =====================
 async function joinLiveKitRoom(token) {
-    console.log("Joining LiveKit room...");
+    console.log("🔌 Joining LiveKit room...");
 
     const room = new LivekitClient.Room({
         adaptiveStream: true,
@@ -124,14 +327,15 @@ async function joinLiveKitRoom(token) {
     window.room = room;
 
     room.on(LivekitClient.RoomEvent.Connected, () => {
-        console.log("Successfully connected to the room");
+        console.log("✅ Connected to LiveKit room");
         statusRoom.innerText = "✅ Connected to LiveKit room.";
     });
 
     room.on(LivekitClient.RoomEvent.Disconnected, () => {
-        console.log("Disconnected from the room");
+        console.log("❌ Disconnected from room");
         statusRoom.innerText = "❌ Disconnected from LiveKit room.";
-
+        updateChatStatus(false);
+        
         // Cleanup saat disconnect
         if (recorder && recorder.state === "recording") {
             recorder.stop();
@@ -142,41 +346,35 @@ async function joinLiveKitRoom(token) {
     });
 
     room.on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
-        console.log("Participant connected:", participant.identity);
-
+        console.log("👤 Participant joined:", participant.identity);
         agentReady = true;
         statusRoom.innerText = "🤖 Agent siap, silakan verifikasi suara";
     });
 
-    room.on(
-        LivekitClient.RoomEvent.DataReceived,
-        (payload, participant, kind, topic) => {
-            // The SDK often passes (payload, participant, kind, topic)
-            // instead of a single 'packet' object depending on the version.
+    room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+        console.log("📦 Data received from:", participant?.identity, "Topic:", topic);
 
-            console.log("📦 Data received from:", participant?.identity);
+        if (!payload || payload.byteLength === 0) {
+            console.warn("⚠️ Received empty payload");
+            return;
+        }
 
-            if (!payload || payload.byteLength === 0) {
-                console.warn("⚠️ Received empty payload");
-                return;
-            }
+        // Accept both VOICE_CMD and PRODUCT_DATA topics
+        if (topic && topic !== "VOICE_CMD" && topic !== "PRODUCT_DATA") return;
 
-            // Use the 'topic' argument directly if provided by the emitter
-            if (topic !== "VOICE_CMD") return;
+        handleAgentCommand(payload);
+    });
 
-            handleAgentCommand(payload);
-        },
-    );
-
-    room.on("trackSubscribed", (track) => {
-        if (track.kind === "audio") {
+    // ===================== AUDIO TRACK SUBSCRIPTION =====================
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        if (track.kind === LivekitClient.Track.Kind.Audio) {
             const audioElement = track.attach();
             document.body.appendChild(audioElement);
 
-            // Logika Animasi: Deteksi suara dari track agent
+            // Audio visualization
             const audioContext = new AudioContext();
             const source = audioContext.createMediaStreamSource(
-                new MediaStream([track.mediaStreamTrack]),
+                new MediaStream([track.mediaStreamTrack])
             );
             const analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
@@ -196,25 +394,52 @@ async function joinLiveKitRoom(token) {
             }
             checkVolume();
 
-            audioElement
-                .play()
-                .catch((e) => console.error("Audio play error:", e));
+            audioElement.play().catch((e) => console.error("Audio play error:", e));
         }
+    });
+
+    // ===================== TRANSCRIPTION EVENTS =====================
+    room.on(LivekitClient.RoomEvent.TranscriptionReceived, (transcriptions, participant, publication) => {
+        transcriptions.forEach(segment => {
+            // Hanya proses jika final dan ada text
+            if (segment.final && segment.text && segment.text.trim() !== "") {
+                const isAgent = participant && (
+                    participant.identity === "agent" || 
+                    participant.identity.includes("agent") ||
+                    participant.sid !== room.localParticipant.sid
+                );
+                
+                if (isAgent) {
+                    hideTypingIndicator();
+                    addMessage("assistant", segment.text.trim());
+                } else {
+                    addMessage("user", segment.text.trim());
+                }
+            } 
+            // Tampilkan typing indicator untuk interim transcript agent saja
+            else if (!segment.final && segment.text) {
+                const isAgent = participant && participant.sid !== room.localParticipant.sid;
+                if (isAgent) {
+                    showTypingIndicator();
+                }
+            }
+        });
     });
 
     await room.connect(LIVEKIT_URL, token);
     console.log("Connected to room. Checking existing participants...");
 
     if (room.remoteParticipants.size > 0) {
-        console.log(
-            `Found ${room.remoteParticipants.size} existing participants.`,
-        );
+        console.log(`✅ Found ${room.remoteParticipants.size} existing participant(s)`);
         agentReady = true;
         statusRoom.innerText = "🤖 Agent terdeteksi, silakan verifikasi suara";
     }
 
+    // Publish local audio track
     const track = await LivekitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(track);
+
+    console.log("✅ Setup complete");
 }
 
 // ===================== AGENT COMMAND =====================
@@ -222,7 +447,7 @@ async function handleAgentCommand(payload) {
     const decoder = new TextDecoder();
     const strData = decoder.decode(payload);
 
-    // 🔥 FIX PALING PENTING
+    // Validasi payload
     if (!strData || strData.trim().length < 2) {
         console.warn("⚠️ Ignoring empty/invalid agent payload");
         return;
@@ -231,7 +456,7 @@ async function handleAgentCommand(payload) {
     const clean = strData.trim();
     console.log("📩 DATA FROM AGENT:", clean);
 
-    // Pastikan JSON beneran
+    // Pastikan JSON valid
     if (clean[0] !== "{") {
         console.warn("⚠️ Non-JSON agent payload ignored:", clean);
         return;
@@ -246,7 +471,33 @@ async function handleAgentCommand(payload) {
         return;
     }
 
-    if (msg.type !== "VOICE_CMD") return;
+    // Filter by type if needed
+    if (msg.type && msg.type !== "VOICE_CMD") {
+        // Handle product cards
+        if (msg.type === "PRODUCT_CARDS" && msg.products) {
+            console.log("📦 Received product cards:", msg.products.length);
+            addProductCards(msg.products);
+            return;
+        }
+        
+        // Handle other message types
+        if (msg.type === "AGENT_MESSAGE" && msg.text) {
+            hideTypingIndicator();
+            addMessage("assistant", msg.text);
+        }
+        if (msg.type === "AGENT_THINKING") {
+            showTypingIndicator();
+        }
+        if (msg.type === "TRANSCRIPTION" && msg.text && msg.text.trim() !== "") {
+            if (msg.role === "user") {
+                addMessage("user", msg.text);
+            } else if (msg.role === "assistant") {
+                hideTypingIndicator();
+                addMessage("assistant", msg.text);
+            }
+        }
+        return;
+    }
 
     console.log("📦 ACTION diterima:", msg.action);
 
@@ -272,10 +523,7 @@ async function startRecording() {
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-        });
-
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         recorder = new MediaRecorder(stream);
         chunks = [];
 
@@ -286,11 +534,11 @@ async function startRecording() {
         recorder.onstop = async () => {
             console.log("📤 Rekaman selesai, mengirim ke server verifikasi...");
             await sendForVerification();
-            recorder.stream.getTracks().forEach((track) => track.stop());
+            stream.getTracks().forEach((track) => track.stop());
         };
 
         recorder.start();
-        statusVerify.innerText = "🎙️ Merekam (Perintah Agent)...";
+        statusVerify.innerText = "🎙️ Merekam...";
         console.log("✅ Recording started by Agent command.");
     } catch (err) {
         console.error("❌ Gagal memulai recording otomatis:", err);
@@ -305,7 +553,7 @@ function stopRecording() {
 
 // ===================== VERIFY =====================
 async function sendForVerification() {
-    // 🔧 FIX: Validasi token sebelum request
+    // Validasi token sebelum request
     if (!window.supabaseToken) {
         console.error("❌ No auth token available");
         statusVerify.innerText = "❌ Login dulu sebelum verifikasi";
@@ -339,11 +587,9 @@ async function sendForVerification() {
         scoreDisplay.innerText = `📊 Similarity Score: ${percentScore}%`;
         scoreDisplay.style.color = result.verified ? "#10b981" : "#ef4444";
 
-        statusVerify.innerText = result.verified
-            ? "✅ Verified"
-            : "❌ Verification failed";
+        statusVerify.innerText = result.verified ? "✅ Verified" : "❌ Verification failed";
 
-        // 🔧 FIX: Pastikan room dan agent ready sebelum kirim
+        // Pastikan room dan agent ready sebelum kirim
         if (!agentReady || !window.room) {
             console.warn("⚠️ Agent not ready, skipping data send");
             return;
@@ -352,15 +598,15 @@ async function sendForVerification() {
         const payload = JSON.stringify({
             type: "VOICE_RESULT",
             voice_verified: result.verified,
-            decision: result.status, // Dari server: "VERIFIED", "DENIED", "REPEAT"
+            decision: result.status,
             score: result.score,
-            spoof_prob: result.spoof_prob, // 🔧 FIX: sudah benar
+            spoof_prob: result.spoof_prob,
             ts: Date.now(),
         });
 
         await window.room.localParticipant.publishData(
             new TextEncoder().encode(payload),
-            { reliable: true },
+            { reliable: true }
         );
 
         console.log("📤 Sent verification result to agent");
@@ -370,7 +616,7 @@ async function sendForVerification() {
     }
 }
 
-// ===================== VAD RECORDING =====================
+// ===================== VAD RECORDING (IMPROVED) =====================
 async function startVADRecording() {
     console.log("🎯 startVADRecording() called");
 
@@ -381,9 +627,7 @@ async function startVADRecording() {
 
     try {
         console.log("🎤 Requesting microphone access...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("✅ Microphone access granted");
 
         const audioContext = new AudioContext();
@@ -405,11 +649,11 @@ async function startVADRecording() {
         let silenceStart = null;
         let checkInterval = null;
 
-        // === TUNING PARAM ===
-        const START_THRESHOLD = 0.01; // mulai ngomong (LOWERED for testing)
-        const STOP_THRESHOLD = 0.005; // dianggap diam (LOWERED for testing)
-        const SILENCE_DELAY = 1200; // ms
-        const MAX_DURATION = 6000; // ms hard stop
+        // Tuning parameters
+        const START_THRESHOLD = 0.01;
+        const STOP_THRESHOLD = 0.005;
+        const SILENCE_DELAY_MS = 1200;
+        const MAX_DURATION = 6000;
 
         recorder.ondataavailable = (e) => {
             if (e.data.size > 0) {
@@ -447,7 +691,7 @@ async function startVADRecording() {
         function check() {
             analyser.getByteTimeDomainData(buffer);
 
-            // === RMS ===
+            // Calculate RMS
             let sum = 0;
             for (let i = 0; i < buffer.length; i++) {
                 const v = (buffer[i] - 128) / 128;
@@ -455,64 +699,52 @@ async function startVADRecording() {
             }
             const rms = Math.sqrt(sum / buffer.length);
 
-            // Log RMS every 30 frames (~0.5 seconds) for debugging
+            // Log RMS every 30 frames for debugging
             frameCount++;
             if (frameCount % 30 === 0) {
-                console.log(
-                    `📊 RMS: ${rms.toFixed(4)} | Recording: ${isRecording} | Threshold: ${START_THRESHOLD}`,
-                );
+                console.log(`📊 RMS: ${rms.toFixed(4)} | Recording: ${isRecording}`);
             }
 
-            // === START ===
+            // START RECORDING
             if (!isRecording && rms > START_THRESHOLD) {
-                console.log(
-                    `🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`,
-                );
+                console.log(`🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`);
                 recorder.start();
                 isRecording = true;
                 silenceStart = null;
                 statusVerify.innerText = "🎙️ Mendengarkan...";
             }
 
-            // === STOP ===
+            // STOP RECORDING
             if (isRecording) {
                 if (rms < STOP_THRESHOLD) {
                     if (!silenceStart) {
                         silenceStart = performance.now();
-                        console.log(
-                            `🤫 Silence detected (RMS: ${rms.toFixed(4)})`,
-                        );
+                        console.log(`🤫 Silence detected (RMS: ${rms.toFixed(4)})`);
                     }
 
                     const silenceDuration = performance.now() - silenceStart;
-                    if (silenceDuration > SILENCE_DELAY) {
-                        console.log(
-                            `✅ Silence duration: ${silenceDuration.toFixed(0)}ms → STOP`,
-                        );
+                    if (silenceDuration > SILENCE_DELAY_MS) {
+                        console.log(`✅ Silence duration: ${silenceDuration.toFixed(0)}ms → STOP`);
                         recorder.stop();
-                        return; // Exit check loop
+                        return;
                     }
                 } else {
-                    // Voice detected again, reset silence timer
+                    // Voice detected again
                     if (silenceStart) {
-                        console.log(
-                            `🎙️ Voice resumed (RMS: ${rms.toFixed(4)})`,
-                        );
+                        console.log(`🎙️ Voice resumed (RMS: ${rms.toFixed(4)})`);
                     }
                     silenceStart = null;
                 }
             }
 
-            // === HARD STOP ===
+            // HARD STOP
             const elapsed = performance.now() - startTime;
             if (elapsed > MAX_DURATION) {
-                console.warn(
-                    `⏱️ Max duration (${MAX_DURATION}ms) reached → FORCE STOP`,
-                );
+                console.warn(`⏱️ Max duration (${MAX_DURATION}ms) reached → FORCE STOP`);
                 if (recorder.state === "recording") {
                     recorder.stop();
                 }
-                return; // Exit check loop
+                return;
             }
 
             checkInterval = requestAnimationFrame(check);
@@ -544,9 +776,7 @@ enrollBtn.onclick = async () => {
 
 async function startEnrollRecording() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorderEnroll = new MediaRecorder(stream);
         let enrollChunks = [];
 
@@ -555,7 +785,7 @@ async function startEnrollRecording() {
         };
 
         recorderEnroll.onstop = async () => {
-            recorderEnroll.stream.getTracks().forEach((t) => t.stop());
+            stream.getTracks().forEach((t) => t.stop());
 
             const blob = new Blob(enrollChunks, { type: "audio/wav" });
             const form = new FormData();
@@ -592,7 +822,6 @@ async function startEnrollRecording() {
 
         recorderEnroll.start();
         statusVerify.innerText = "🎙️ Speak clearly for enrollment...";
-
         setTimeout(() => recorderEnroll.stop(), 4000);
     } catch (err) {
         console.error("Enroll error:", err);
@@ -606,7 +835,7 @@ async function restoreSession() {
     if (!data.session) return;
 
     window.supabaseToken = data.session.access_token;
-    console.log("🔄 Session restored, token refreshed");
+    console.log("🔄 Session restored");
 
     loginBtn.disabled = true;
     logoutBtn.disabled = false;

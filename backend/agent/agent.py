@@ -261,6 +261,9 @@ async def connect(ctx: agents.JobContext):
             except:
                 pass
 
+    agent_state["room"] = room
+    print("✅ Room set in agent_state for product card sending")
+    
     # ================= START SESSION =================
     await session.start(
         room=room,

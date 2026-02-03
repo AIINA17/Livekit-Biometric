@@ -81,13 +81,18 @@ def require_voice_verification(action_name: str, params=None) -> str:
 
 
 async def send_product_cards(products: list):
-    """Send product cards to frontend via data channel"""
+    """Send product cards to frontend via data channel with 2s delay for better timing"""
     if not auth_state["room_ref"]:
         logging.warning("⚠️ Room reference not set, cannot send product cards")
         return
     
     try:
         import json
+        import asyncio
+        
+        # ⏰ DELAY 2 DETIK BIAR AGENT NGOMONG DULU
+        await asyncio.sleep(2)
+        
         payload = json.dumps({
             "type": "PRODUCT_CARDS",
             "products": products[:8]  # Limit to 8 products
@@ -98,7 +103,7 @@ async def send_product_cards(products: list):
             reliable=True,
             topic="PRODUCT_DATA"
         )
-        logging.info(f"✅ Sent {len(products[:8])} product cards to frontend")
+        logging.info(f"✅ Sent {len(products[:8])} product cards to frontend (delayed 2s)")
     except Exception as e:
         logging.error(f"❌ Error sending product cards: {e}")
 
@@ -303,7 +308,7 @@ async def search_product(
             # Save products for reference
             auth_state["last_search_products"] = products[:10]
             
-            # Send product cards to frontend
+            # Send product cards to frontend (WITH 2s DELAY)
             await send_product_cards(products[:8])
             
             # Return summary to voice

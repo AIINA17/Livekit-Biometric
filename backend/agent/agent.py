@@ -110,9 +110,16 @@ async def connect(ctx: agents.JobContext):
     room = ctx.room
     print(f"🤖 Agent CONNECT ke room: {room.name}")
     
-    # Set room reference for tools to send product cards
-    auth_state["room_ref"] = room
+    # Set room reference di agent_state DAN auth_state
+    agent_state["room"] = room
+    print("✅ Room set in agent_state")
 
+    # IMPORTANT: Set room_ref untuk tools.py
+    from agent.tools import auth_state as tools_auth_state
+    tools_auth_state["room_ref"] = room
+    print("✅ Room reference set for product cards")
+    
+    # ================= AGENT SESSION =================
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
             voice="Charon"

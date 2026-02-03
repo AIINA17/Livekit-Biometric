@@ -16,7 +16,7 @@ def load_behavior_profile(user_id: str) -> BehaviorProfile:
     if not res.data:
         return BehaviorProfile()
 
-    row = res.data
+    row = res.data[0]
 
     return BehaviorProfile(
         n_samples=row["n_samples"],

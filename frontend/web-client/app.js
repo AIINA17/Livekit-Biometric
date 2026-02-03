@@ -16,10 +16,10 @@ const passwordInput = document.getElementById("password");
 
 let agentReady = false;
 let vadTimeout = null;
+let allowUserToSpeak = false;
 
 const VAD_THRESHOLD = 12;
-const SILENCE_DELAY = 1500;
-const VAD_MAX_DURATION = 30000; // 30 detik max recording
+const SILENCE_DELAY = 800;
 
 // SERVER_URL dari .env
 const SERVER_URL = "http://localhost:8000";
@@ -262,45 +262,17 @@ async function handleAgentCommand(payload) {
         stopRecording();
         console.log("✅ Recording stopped by Agent command.");
     }
-}
 
-// ===================== RECORDING =====================
-async function startRecording() {
-    if (recorder && recorder.state === "recording") {
-        console.warn("⏸️ Sedang merekam, perintah diabaikan.");
-        return;
-    }
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-        });
-
-        recorder = new MediaRecorder(stream);
-        chunks = [];
-
-        recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
-        };
-
-        recorder.onstop = async () => {
-            console.log("📤 Rekaman selesai, mengirim ke server verifikasi...");
-            await sendForVerification();
-            recorder.stream.getTracks().forEach((track) => track.stop());
-        };
-
-        recorder.start();
-        statusVerify.innerText = "🎙️ Merekam (Perintah Agent)...";
-        console.log("✅ Recording started by Agent command.");
-    } catch (err) {
-        console.error("❌ Gagal memulai recording otomatis:", err);
-        statusVerify.innerText = "❌ Gagal akses Mic";
+    if (msg.action === "READY_FOR_USER") {
+        allowUserToSpeak = true;
+        statusVerify.innerText = "🎧 Silakan bicara untuk verifikasi...";
     }
 }
 
 function stopRecording() {
     if (!recorder || recorder.state !== "recording") return;
     recorder.stop();
+    allowUserToSpeak = false;
 }
 
 // ===================== VERIFY =====================
@@ -401,15 +373,14 @@ async function startVADRecording() {
         chunks = [];
         console.log("✅ MediaRecorder initialized");
 
-        let isRecording = false;
         let silenceStart = null;
         let checkInterval = null;
 
         // === TUNING PARAM ===
         const START_THRESHOLD = 0.01; // mulai ngomong (LOWERED for testing)
-        const STOP_THRESHOLD = 0.005; // dianggap diam (LOWERED for testing)
-        const SILENCE_DELAY = 1200; // ms
-        const MAX_DURATION = 6000; // ms hard stop
+        const STOP_THRESHOLD = 0.008; // dianggap diam (LOWERED for testing)
+        const SILENCE_DELAY = 700; // ms
+        const MAX_RECORD_MS = 5000; // ms
 
         recorder.ondataavailable = (e) => {
             if (e.data.size > 0) {
@@ -420,7 +391,8 @@ async function startVADRecording() {
 
         recorder.onstop = async () => {
             console.log("🛑 Recording stopped");
-            console.log(`📊 Total chunks: ${chunks.length}`);
+
+            allowUserToSpeak = false;
 
             // Stop the check loop
             if (checkInterval) {
@@ -445,6 +417,11 @@ async function startVADRecording() {
         let frameCount = 0;
 
         function check() {
+            if (!allowUserToSpeak) {
+                checkInterval = requestAnimationFrame(check);
+                return;
+            }
+
             analyser.getByteTimeDomainData(buffer);
 
             // === RMS ===
@@ -459,23 +436,26 @@ async function startVADRecording() {
             frameCount++;
             if (frameCount % 30 === 0) {
                 console.log(
-                    `📊 RMS: ${rms.toFixed(4)} | Recording: ${isRecording} | Threshold: ${START_THRESHOLD}`,
+                    `📊 Recording: ${recorder?.state === "recording"} | Threshold: ${START_THRESHOLD}`,
                 );
             }
 
             // === START ===
-            if (!isRecording && rms > START_THRESHOLD) {
+            if (
+                recorder?.state !== "recording" &&
+                rms > START_THRESHOLD &&
+                allowUserToSpeak
+            ) {
                 console.log(
                     `🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`,
                 );
                 recorder.start();
-                isRecording = true;
                 silenceStart = null;
                 statusVerify.innerText = "🎙️ Mendengarkan...";
             }
 
             // === STOP ===
-            if (isRecording) {
+            if (recorder?.state === "recording" && allowUserToSpeak) {
                 if (rms < STOP_THRESHOLD) {
                     if (!silenceStart) {
                         silenceStart = performance.now();
@@ -502,19 +482,6 @@ async function startVADRecording() {
                     silenceStart = null;
                 }
             }
-
-            // === HARD STOP ===
-            const elapsed = performance.now() - startTime;
-            if (elapsed > MAX_DURATION) {
-                console.warn(
-                    `⏱️ Max duration (${MAX_DURATION}ms) reached → FORCE STOP`,
-                );
-                if (recorder.state === "recording") {
-                    recorder.stop();
-                }
-                return; // Exit check loop
-            }
-
             checkInterval = requestAnimationFrame(check);
         }
 
@@ -523,6 +490,13 @@ async function startVADRecording() {
         check();
 
         console.log("✅ VAD recording setup complete!");
+
+        setTimeout(() => {
+            if (recorder?.state === "recording") {
+                console.warn("⏰ Max record duration reached → FORCE STOP");
+                recorder.stop();
+            }
+        }, MAX_RECORD_MS);
     } catch (err) {
         console.error("❌ Failed to start VAD recording:", err);
         console.error("Error details:", err.message);
@@ -613,3 +587,40 @@ async function restoreSession() {
 }
 
 restoreSession();
+
+// ===================== SIGNUP =====================
+const signupForm = document.getElementById("signup-form");
+const signupEmail = document.getElementById("signup-email");
+const signupPassword = document.getElementById("signup-password");
+
+
+signupForm.onsubmit = async (e) => {
+    e.preventDefault();
+
+    const email = signupEmail.value;
+    const password = signupPassword.value;
+
+    const { data, error } = await window._supabaseClient.auth.signUp({
+        email,
+        password,
+    });
+
+    if (error) {
+        alert("❌ Signup gagal: " + error.message);
+        return;
+    }
+    // Kalau email confirmation ON
+    if (!data.session) {
+        alert("📧 Cek email kamu untuk verifikasi akun");
+        return;
+    }
+
+    // Kalau email confirmation OFF
+    window.supabaseToken = data.session.access_token;
+
+    loginBtn.disabled = true;
+    logoutBtn.disabled = false;
+
+    statusVerify.innerText = "✅ Signup & login berhasil";
+    console.log("✅ Signup success:", data);
+};

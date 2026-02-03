@@ -290,16 +290,27 @@ async def connect(ctx: agents.JobContext):
 
     # ================= START VERIFICATION =================
     async def start_verification():
-        await asyncio.sleep(1)  # Delay sebelum mulai verifikasi
+        await asyncio.sleep(0.5)
+
+        print("👂 Mengizinkan user bicara...")
+        await send_cmd("READY_FOR_USER")
+
+        await asyncio.sleep(0.3)
 
         print("🎙️ Memulai proses verifikasi suara...")
         await send_cmd("START_RECORD")
+
 
     # ================= RETRY VERIFICATION =================
     async def retry_verification():
         """Mengirim perintah verifikasi ulang ke web setelah interval tertentu"""
         print("🔄 Mengirim perintah verifikasi ulang ke web...")
         await asyncio.sleep(0.5)
+        await send_cmd("READY_FOR_USER")
+
+        await asyncio.sleep(0.3)
+
+        print("🎙️ Memulai proses verifikasi suara...")
         await send_cmd("START_RECORD")
 
 

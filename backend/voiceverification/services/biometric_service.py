@@ -3,6 +3,7 @@ import numpy as np
 from time import time
 from typing import List, Optional
 
+from voiceverification.core.behavior_profile import BehaviorProfile
 from voiceverification.models.speaker_verifier import SpeakerVerifier
 from voiceverification.core.asvspoof import compute_score
 from voiceverification.core.decision_engine import decide, Decision
@@ -55,13 +56,19 @@ class BiometricService:
         pitch, rate = None, None
         z_pitch = z_rate = None
 
-        if behavior_profile is not None and decision == Decision.VERIFIED:
+        if decision == Decision.VERIFIED:
             y, sr = librosa.load(live_wav, sr=16000)
-
-            # hitung pitch & rate dari LIVE
             pitch = float(np.nanmean(librosa.yin(y, fmin=50, fmax=300, sr=sr)))
-            rate = float(len(y) / sr) 
+            rate = float(len(y) / sr)
 
+        if behavior_profile is not None:
+            behavior_profile = BehaviorProfile()
+            behavior_profile.update(pitch, rate, time())
+
+            if user_id:
+                save_behavior_profile(user_id, behavior_profile)
+
+        else:
             (
                 behavior_score,
                 z_pitch,

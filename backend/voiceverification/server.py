@@ -1,5 +1,7 @@
 import os
 import uuid
+import numpy as np
+import librosa
 
 from dotenv import load_dotenv
 from time import time
@@ -14,7 +16,7 @@ from voiceverification.services.biometric_service import BiometricService
 
 
 from voiceverification.core.decision_engine import Decision
-
+from voiceverification.core.behavior_profile import BehaviorProfile
 
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
@@ -181,34 +183,45 @@ async def health_check():
 
 @app.post("/enroll-voice")
 async def enroll_voice(request: Request, audio: UploadFile = File(...)):
-    """
-    Enroll user voice:
-    - extract speaker embedding
-    - normalize & save to Supabase
-    - NO decision engine
-    - NO adaptive update
-    """
     user_id = get_user_id_from_request(request)
 
     if count_enrollments(user_id) >= 3:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Maximum enrollment reached (3)."
         )
 
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
 
-
-
     try:
         verifier = SpeakerVerifier()
 
-        # 1️⃣ Extract embedding
+        # 1️⃣ Extract & save embedding
         embedding = verifier.extract_embedding(wav_path)
-
-        # 2️⃣ Save to Supabase
         save_embedding(user_id, embedding)
+
+        # 2️⃣ Bootstrap behavior profile (ONLY IF NOT EXISTS)
+        behavior_profile = load_behavior_profile(user_id)
+
+        if behavior_profile is None:
+            y, sr = librosa.load(wav_path, sr=16000)
+
+            pitch = float(np.nanmean(
+                librosa.yin(y, fmin=50, fmax=300, sr=sr)
+            ))
+            rate = float(len(y) / sr)
+
+            behavior_profile = BehaviorProfile(
+                n_samples=1,
+                mean_pitch=pitch,
+                var_pitch=0.0,
+                mean_rate=rate,
+                var_rate=0.0,
+                last_update_ts=time()
+            )
+
+            save_behavior_profile(user_id, behavior_profile)
 
         return {
             "status": "OK",

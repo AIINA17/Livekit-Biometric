@@ -10,8 +10,7 @@ from voiceverification.core.decision_engine import decide, Decision
 from voiceverification.core.trusted_update import TrustedUpdatePolicy
 from voiceverification.core.behavior_scoring import compute_behavior_score
 
-from voiceverification.db.behavior_repo import save_behavior_profile
-
+from voiceverification.db.behavior_repo import save_behavior_profile, load_behavior_profile
 
 class BiometricService:
     def __init__(self, device="cpu"):
@@ -27,20 +26,23 @@ class BiometricService:
         *,
         live_wav: str,
         enroll_embeddings: List[np.ndarray],
-        behavior_profile=None,
         user_id: Optional[str] = None,
         is_retry: bool = False,
     ) -> dict:
         # 1. Extract live embedding
         live_emb = self.speaker.extract_embedding(live_wav)
 
-        scores = [
-            self.speaker.compare_embeddings(live_emb, emb) 
-            for emb in enroll_embeddings
-        ]
+        scores = []
+        for prof in enroll_embeddings:
+            score = self.speaker.compare_embeddings(
+                live_emb,
+                prof["embedding"]
+            )
+            scores.append(score)
 
         best_idx = int(np.argmax(scores))
         best_score = float(scores[best_idx])
+        best_label = enroll_embeddings[best_idx]["label"]
 
         # 2. Spoof Score
         spoof_prob, _ = compute_score(live_wav)
@@ -61,47 +63,42 @@ class BiometricService:
             pitch = float(np.nanmean(librosa.yin(y, fmin=50, fmax=300, sr=sr)))
             rate = float(len(y) / sr)
 
-        if behavior_profile is not None:
-            behavior_profile = BehaviorProfile()
-            behavior_profile.update(pitch, rate, time())
+            behavior_profile = load_behavior_profile(user_id, best_label)
 
-            if user_id:
-                save_behavior_profile(user_id, behavior_profile)
-
-        else:
-            (
-                behavior_score,
-                z_pitch,
-                z_rate,
-                _,
-                _
-            ) = compute_behavior_score(
-                pitch,
-                rate,
-                behavior_profile
-            )
-
-
-        # 5. Trusted Update
-        if behavior_profile is not None and self.policy.should_update(
-                decision=decision.value,
-                speaker_score=best_score,
-                spoof_prob=spoof_prob,
-                behavior_score=behavior_score,
-                n_samples=behavior_profile.n_samples,
-                z_pitch=z_pitch,
-                z_rate=z_rate,
-                last_update_time=behavior_profile.last_update_ts,
-                is_retry=is_retry,
-            ):
-                behavior_profile.update(
+            if behavior_profile is None:
+                behavior_profile = BehaviorProfile()
+                behavior_profile.update(pitch, rate, time())
+                save_behavior_profile(user_id, best_label, behavior_profile)
+            else:
+                # 🧠 compute behavior score
+                behavior_score, z_pitch, z_rate, _, _ = compute_behavior_score(
                     pitch,
                     rate,
-                    time()
+                    behavior_profile
                 )
 
-                if user_id:
-                    save_behavior_profile(user_id, behavior_profile)
+                # 🔒 trusted adaptive update
+                if self.policy.should_update(
+                    decision=decision.value,
+                    speaker_score=best_score,
+                    spoof_prob=spoof_prob,
+                    behavior_score=behavior_score,
+                    n_samples=behavior_profile.n_samples,
+                    z_pitch=z_pitch,
+                    z_rate=z_rate,
+                    last_update_time=behavior_profile.last_update_ts,
+                    is_retry=is_retry,
+                ):
+                    behavior_profile.update(pitch, rate, time())
+                    save_behavior_profile(user_id, best_label, behavior_profile)
+
+        # 5. Log
+        print(
+            f"🎯 VERIFY | label='{best_label}' "
+            f"| score={best_score:.3f} "
+            f"| spoof={spoof_prob:.3f} "
+            f"| behavior={behavior_score if behavior_score else 'N/A'}"
+        )
 
 
         return {
@@ -113,6 +110,7 @@ class BiometricService:
             "spoof_prob": spoof_prob,
             
             "best_index": best_idx,
+            "best_label": best_label,
             "all_scores": scores,
             
             "pitch": pitch,

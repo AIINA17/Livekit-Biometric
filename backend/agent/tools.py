@@ -1,3 +1,6 @@
+import asyncio
+import json
+import json
 import logging
 import time
 import requests
@@ -25,12 +28,16 @@ auth_state = {
     "voice_score": 0.0,
     "voice_status_detail": "INIT",
     "verify_attempts": 0,
- 
+
     "voice_feedback_sent": False,
     "force_verify": False,
     "_force_started": False,
     "pending_action": None,
     "pending_params": None,
+
+    # Product cards state
+    "last_search_products": [],
+    "room_ref": None,  # Will be set by agent
 }
 
 
@@ -75,6 +82,29 @@ def require_voice_verification(action_name: str, params=None) -> str:
         )
     return None
 
+async def send_product_cards(products: list):
+    """Send product cards to frontend via data channel with 2s delay for better timing"""
+    if not auth_state["room_ref"]:
+        logging.warning("⚠️ Room reference not set, cannot send product cards")
+        return
+    
+    try:
+        # ⏰ DELAY 2 DETIK BIAR AGENT NGOMONG DULU
+        await asyncio.sleep(2)
+        
+        payload = json.dumps({
+            "type": "PRODUCT_CARDS",
+            "products": products[:8]  # Limit to 8 products
+        }).encode("utf-8")
+        
+        await auth_state["room_ref"].local_participant.publish_data(
+            payload,
+            reliable=True,
+            topic="PRODUCT_DATA"
+        )
+        logging.info(f"✅ Sent {len(products[:8])} product cards to frontend (delayed 2s)")
+    except Exception as e:
+        logging.error(f"❌ Error sending product cards: {e}")
 
 # ==================== GENERAL TOOLS ====================
 
@@ -270,14 +300,30 @@ async def search_product(
             products = data.get("data", [])
             
             if not products:
-                return f"Gak nemu produk untuk '{query}'."
+                search_term = query if query else "semua kategori"
+                return f"Gak nemu produk untuk '{search_term}'."
             
-            result = f"Ketemu {len(products)} produk untuk '{query}':\n\n"
-            for p in products[:10]:
-                result += f"• ID: {p['id']} | {p['name']}\n"
-                result += f"  Harga: Rp {p['price']:,} | Rating: {p['rating']}⭐\n\n"
+            # Save products for reference
+            auth_state["last_search_products"] = products[:10]
+            
+            # Send product cards to frontend (WITH 2s DELAY)
+            await send_product_cards(products[:8])
+            
+            # Return summary to voice
+            search_term = query if query else "pencarian"
+            result = f"Oke, gue nemu {len(products)} produk untuk '{search_term}'. "
+            result += f"Gue tampilin {min(len(products), 8)} produk di layar. "
+            
+            # Mention top 3 products
+            if len(products) >= 3:
+                result += f"Yang paling atas ada {products[0]['name']} harga {products[0]['price']:,}, "
+                result += f"{products[1]['name']} harga {products[1]['price']:,}, "
+                result += f"sama {products[2]['name']} harga {products[2]['price']:,}. "
+            
+            result += "Klik salah satu buat liat detail, atau bilang 'tambahin ke keranjang produk nomor X' kalo mau beli."
             
             return result
+        
         return "Gagal mencari produk."
             
     except Exception as e:
@@ -322,19 +368,19 @@ async def get_product_detail(product_id: int) -> str:
                 stock_status = "❌ Habis"
             
             return f"""📦 Detail Produk:
+                • Nama: {name}
+                • Harga: Rp {price:,}
+                • Kategori: {category}
+                • Rating: {rating}⭐
+                • Stok: {stock_status}
 
-• Nama: {name}
-• Harga: Rp {price:,}
-• Kategori: {category}
-• Rating: {rating}⭐
-• Stok: {stock_status}
+                📝 Deskripsi:
+                {description}
 
-📝 Deskripsi:
-{description}
+                🖼️ Foto Produk: {image_url}
 
-🖼️ Foto Produk: {image_url}
-
-🔗 Link Produk: {product_link}"""
+                🔗 Link Produk: {product_link}
+                """
         
         return "Produk tidak ditemukan."
             
@@ -342,6 +388,23 @@ async def get_product_detail(product_id: int) -> str:
         logging.error(f"Get product error: {e}")
         return f"Error: {str(e)}"
 
+@function_tool
+async def get_product_from_search_index(index: int) -> str:
+    """
+    Get product ID from the last search results by index (1-based).
+    Example: User says 'add product number 2 to cart', this returns the 2nd product from last search.
+    """
+    if not auth_state["last_search_products"]:
+        return "Gak ada hasil pencarian sebelumnya. Coba cari produk dulu."
+    
+    if index < 1 or index > len(auth_state["last_search_products"]):
+        return f"Index {index} gak valid. Hasil pencarian cuma ada {len(auth_state['last_search_products'])} produk."
+    
+    product = auth_state["last_search_products"][index - 1]
+    product_id = product.get("id")
+    product_name = product.get("name")
+    
+    return f"Produk nomor {index} adalah {product_name} (ID: {product_id})"
 
 # ==================== CART TOOLS ====================
 

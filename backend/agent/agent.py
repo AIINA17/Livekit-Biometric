@@ -46,6 +46,7 @@ from agent.tools import (
     get_shopkupay_balance,
     search_product,
     get_product_detail,
+    get_product_from_search_index,
     add_to_cart,
     get_cart,
     remove_from_cart,
@@ -53,6 +54,7 @@ from agent.tools import (
     pay_order,
     get_order_history,
     get_order_detail,
+    auth_state
 )
 from agent.state import agent_state
 
@@ -61,7 +63,6 @@ SAMPLE_RATE = 16000
 VERIFY_INTERVAL = 180 # seconds
 VOICE_THRESHOLD = 0.1
 MAX_VERIFY_ATTEMPTS = 3
-ENROLL_PATH = "voiceverification/dataset/enroll.wav"
 
 # ================= AGENT =================
 class ShoppingAgent(Agent):
@@ -82,6 +83,7 @@ class ShoppingAgent(Agent):
                 get_shopkupay_balance,
                 search_product,
                 get_product_detail,
+                get_product_from_search_index,
                 # Cart
                 add_to_cart,
                 get_cart,
@@ -91,6 +93,7 @@ class ShoppingAgent(Agent):
                 pay_order,
                 get_order_history,
                 get_order_detail,
+                
             ],
         )
 
@@ -109,6 +112,8 @@ async def connect(ctx: agents.JobContext):
     """
     room = ctx.room
     print(f"🤖 Agent CONNECT ke room: {room.name}")
+
+    auth_state["room_ref"] = room
 
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
@@ -160,12 +165,18 @@ async def connect(ctx: agents.JobContext):
         try:
 
             data = packet.data  # bytes
-            participant = packet.participant
+
+            if not data or len(data) == 0:
+                print("⚠️ Empty data packet received")
+                return
 
             print("📩 RAW payload bytes:", data) 
 
             # Decode JSON
-            payload_str = data.decode("utf-8")
+            payload_str = data.decode("utf-8").strip()
+            if not payload_str.startswith("{"):
+                return
+            
             decoded_data = json.loads(payload_str)
 
             print("📦 Parsed data:", decoded_data)
@@ -214,9 +225,12 @@ async def connect(ctx: agents.JobContext):
         role = event.item.role
         text = event.item.text_content
         
+        if not text: return
+
+        # ================= USER MESSAGE =================
         if role == "user":
             print(f"\n🎤 User: {text}")
-            
+
             # Check shutdown command
             if text:
                 text_lower = text.lower()
@@ -232,10 +246,33 @@ async def connect(ctx: agents.JobContext):
                 if any(keyword in text_lower for keyword in shutdown_keywords):
                     print("\n⚠️  Shutdown command detected. Closing session...")
                     asyncio.create_task(handle_goodbye())
-        
+
+            asyncio.create_task(
+                room.local_participant.publish_data(
+                    json.dumps({
+                        "type": "USER_MESSAGE",
+                        "text": text,
+                        "ts": time.time()
+                    }).encode("utf-8"),
+                    reliable=True,
+                    topic="chat"
+                )
+            )
+        # ================= AGENT MESSAGE =================
         elif role == "assistant":
             print(f"🤖 Agent: {text}")
 
+            asyncio.create_task(
+                room.local_participant.publish_data(
+                    json.dumps({
+                        "type": "AGENT_MESSAGE",
+                        "text": text,
+                        "ts": time.time()
+                    }).encode("utf-8"),
+                    reliable=True,
+                    topic="chat"
+                )
+            )
     async def handle_goodbye():
         """Handle goodbye - say farewell and disconnect from room"""
         try:
@@ -268,6 +305,9 @@ async def connect(ctx: agents.JobContext):
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=noise_cancellation.BVC()
+            ),
+            audio_output=room_io.AudioOutputOptions(
+                sample_rate=SAMPLE_RATE 
             )
         ),
     )

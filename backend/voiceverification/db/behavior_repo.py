@@ -3,18 +3,19 @@ from .connection import get_supabase
 from voiceverification.core.behavior_profile import BehaviorProfile
 
 
-def load_behavior_profile(user_id: str) -> BehaviorProfile:
+def load_behavior_profile(user_id: str, label:str) -> BehaviorProfile:
     sb = get_supabase()
 
     res = (
         sb.table("behavior_profiles")
         .select("*")
         .eq("user_id", user_id)
+        .eq("label", label)
         .execute()
     )
 
     if not res.data:
-        return BehaviorProfile()
+        return None
 
     row = res.data[0]
 
@@ -25,24 +26,24 @@ def load_behavior_profile(user_id: str) -> BehaviorProfile:
         mean_rate=row["mean_rate"],
         var_rate=row["var_rate"],
         last_update_ts=(
-            row["last_update_ts"].timestamp()
-            if row["last_update_ts"] else 0.0
+            row["last_update_ts"]
         ),
     )
 
 
-def save_behavior_profile(user_id: str, profile: BehaviorProfile):
+def save_behavior_profile(user_id: str, label: str, profile: BehaviorProfile):
     sb = get_supabase()
 
     sb.table("behavior_profiles").upsert(
         {
             "user_id": user_id,
+            "label": label,
             "n_samples": profile.n_samples,
             "mean_pitch": profile.mean_pitch,
             "var_pitch": profile.var_pitch,
             "mean_rate": profile.mean_rate,
             "var_rate": profile.var_rate,
-            "last_update_ts": profile.last_update_ts,
+            "last_update_ts": profile.last_update_ts.isoformat(),
+
         },
-        on_conflict="user_id",
     ).execute()

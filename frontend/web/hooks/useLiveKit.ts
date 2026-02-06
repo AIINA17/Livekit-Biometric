@@ -1,8 +1,7 @@
 // hooks/useLiveKit.ts
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Room, RoomEvent, Track } from 'livekit-client';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { AgentCommand, Product, VerificationResult } from '@/types';
 
 interface UseLiveKitProps {
@@ -28,19 +27,263 @@ export function useLiveKit({
   const [agentReady, setAgentReady] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   
+  // Use ref untuk token agar selalu update tanpa re-create callbacks
   const tokenRef = useRef<string | null>(token);
-  tokenRef.current = token;
   
-  const sendForVerificationRef = useRef<
-    ((chunks: Blob[]) => Promise<void>) | null
-  >(null);
+  // Update tokenRef when token changes
+  useEffect(() => {
+    tokenRef.current = token;
+    console.log('🔑 Token updated:', token ? 'SET' : 'NULL');
+  }, [token]);
 
-  const roomRef = useRef<Room | null>(null);
+  const roomRef = useRef<any | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  // Validate environment variables
   const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+
+  // Check if required env vars are set
+  if (!SERVER_URL) {
+    console.error('❌ NEXT_PUBLIC_SERVER_URL is not defined in .env.local');
+  }
+  if (!LIVEKIT_URL) {
+    console.error('❌ NEXT_PUBLIC_LIVEKIT_URL is not defined in .env.local');
+  }
+
+  // Send for verification - defined early so it can be referenced
+  const sendForVerification = useCallback(async (chunks: Blob[]) => {
+    console.log('📤 sendForVerification called');
+    console.log('🔑 Current token:', tokenRef.current ? 'SET' : 'NULL');
+    
+    if (!tokenRef.current) {
+      console.error('❌ No auth token available');
+      onVerifyStatus('❌ Login dulu sebelum verifikasi');
+      return;
+    }
+
+    const blob = new Blob(chunks, { type: 'audio/wav' });
+    const form = new FormData();
+    form.append('audio', blob, 'voice.wav');
+
+    onVerifyStatus('🔍 Verifying...');
+
+    try {
+      console.log('📡 Sending to:', `${SERVER_URL}/verify-voice`);
+      
+      const res = await fetch(`${SERVER_URL}/verify-voice`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+        body: form,
+      });
+
+      console.log('📥 Verification response status:', res.status);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const result: VerificationResult = await res.json();
+      console.log('📊 Verification result:', result);
+
+      onScore(result.score);
+      onVerifyStatus(result.verified ? '✅ Verified' : '❌ Verification failed');
+
+      // Send to agent with retry logic
+      const sendDataToAgent = async (maxRetries = 5) => {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            if (!roomRef.current || !roomRef.current.localParticipant) {
+              console.log(`⚠️ Room not ready (attempt ${attempt + 1}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, 500));
+              continue;
+            }
+
+            const payload = JSON.stringify({
+              type: 'VOICE_RESULT',
+              decision: result.decision || result.status,
+              score: result.score,
+              spoof_prob: result.spoof_prob,
+              reason: result.reason,
+              best_label: result.best_label,
+              verified: result.verified,
+              ts: Date.now(),
+            });
+
+            await roomRef.current.localParticipant.publishData(
+              new TextEncoder().encode(payload),
+              { reliable: true, topic: 'VOICE_RESULT' }
+            );
+
+            console.log('✅ Data sent to agent successfully');
+            return true;
+          } catch (error) {
+            console.error(`❌ Failed to send (attempt ${attempt + 1}):`, error);
+            
+            if (attempt < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        }
+        
+        console.error('❌ Failed to send data after all retries');
+        return false;
+      };
+
+      // Execute send with retry
+      const sent = await sendDataToAgent();
+      if (!sent) {
+        console.warn('⚠️ Failed to notify agent of verification result');
+      }
+
+    } catch (err) {
+      console.error('❌ Verification error:', err);
+      onVerifyStatus(`❌ Error: ${err}`);
+    }
+  }, [onScore, onVerifyStatus, SERVER_URL]);
+
+  // VAD Recording
+  const startVADRecording = useCallback(async () => {
+    console.log('🎯 startVADRecording() called');
+    console.log('🔑 Token check:', tokenRef.current ? 'SET' : 'NULL');
+
+    if (!tokenRef.current) {
+      console.warn('⚠️ Cannot start recording: user not logged in');
+      onVerifyStatus('❌ Login dulu sebelum verifikasi suara');
+      return;
+    }
+
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      console.warn('⚠️ Recording already in progress');
+      return;
+    }
+
+    try {
+      console.log('🎤 Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ Microphone access granted');
+
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+
+      const buffer = new Uint8Array(analyser.fftSize);
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorderRef.current = recorder;
+      chunksRef.current = chunks;
+
+      let isRecording = false;
+      let silenceStart: number | null = null;
+      let checkInterval: number | null = null;
+
+      const START_THRESHOLD = 0.01;
+      const STOP_THRESHOLD = 0.005;
+      const SILENCE_DELAY_MS = 1200;
+      const MAX_DURATION = 6000;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+          console.log(`📦 Audio chunk: ${e.data.size} bytes`);
+        }
+      };
+
+      recorder.onstop = async () => {
+        console.log('🛑 Recording stopped');
+        console.log(`📊 Total chunks: ${chunks.length}`);
+        
+        if (checkInterval) {
+          cancelAnimationFrame(checkInterval);
+        }
+
+        if (chunks.length > 0) {
+          console.log('✅ Sending audio for verification...');
+          await sendForVerification(chunks);
+        } else {
+          console.warn('⚠️ No audio data recorded');
+          onVerifyStatus('⚠️ Tidak ada suara terdeteksi');
+        }
+
+        stream.getTracks().forEach((t) => t.stop());
+        audioContext.close();
+      };
+
+      const startTime = performance.now();
+      let frameCount = 0;
+
+      function check() {
+        analyser.getByteTimeDomainData(buffer);
+
+        let sum = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          const v = (buffer[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buffer.length);
+
+        frameCount++;
+        if (frameCount % 30 === 0) {
+          console.log(`📊 RMS: ${rms.toFixed(4)} | Recording: ${isRecording}`);
+        }
+
+        if (!isRecording && rms > START_THRESHOLD) {
+          console.log(`🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`);
+          recorder.start();
+          isRecording = true;
+          silenceStart = null;
+          onVerifyStatus('🎙️ Mendengarkan...');
+        }
+
+        if (isRecording) {
+          if (rms < STOP_THRESHOLD) {
+            if (!silenceStart) {
+              silenceStart = performance.now();
+            }
+
+            const silenceDuration = performance.now() - silenceStart;
+            if (silenceDuration > SILENCE_DELAY_MS) {
+              console.log(`✅ Silence duration: ${silenceDuration.toFixed(0)}ms → STOP`);
+              recorder.stop();
+              return;
+            }
+          } else {
+            silenceStart = null;
+          }
+        }
+
+        const elapsed = performance.now() - startTime;
+        if (elapsed > MAX_DURATION) {
+          console.warn(`⏱️ Max duration reached → FORCE STOP`);
+          if (recorder.state === 'recording') {
+            recorder.stop();
+          }
+          return;
+        }
+
+        checkInterval = requestAnimationFrame(check) as unknown as number;
+      }
+
+      onVerifyStatus('🎧 Silakan bicara...');
+      console.log('👂 Starting VAD check loop...');
+      check();
+    } catch (err) {
+      console.error('❌ Failed to start VAD recording:', err);
+      onVerifyStatus('❌ Mic access failed');
+    }
+  }, [onVerifyStatus, sendForVerification]);
+
+  const stopRecording = useCallback(() => {
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      recorderRef.current.stop();
+    }
+  }, []);
 
   // Handle agent commands from data channel
   const handleAgentCommand = useCallback((payload: Uint8Array, topic?: string) => {
@@ -82,7 +325,9 @@ export function useLiveKit({
       console.log('📦 VOICE_CMD detected - Action:', msg.action);
 
       if (msg.action === 'START_RECORD') {
-        // 🔐 GUARD AUTH TOKEN
+        console.log('🔐 Checking token before recording...');
+        console.log('🔑 Token:', tokenRef.current ? 'SET' : 'NULL');
+        
         if (!tokenRef.current) {
           console.warn('⚠️ START_RECORD blocked: user not logged in');
           onVerifyStatus('❌ Login dulu sebelum verifikasi suara');
@@ -90,9 +335,7 @@ export function useLiveKit({
         }
 
         startVADRecording();
-      }
-
-      else if (msg.action === 'STOP_RECORD') {
+      } else if (msg.action === 'STOP_RECORD') {
         stopRecording();
       }
 
@@ -122,191 +365,32 @@ export function useLiveKit({
     }
 
     console.log('ℹ️ Unhandled message type:', msg.type);
-}, [token, onMessage, onProductCards, onVerifyStatus]);
-
-  // VAD Recording
-  const startVADRecording = useCallback(async () => {
-    console.log('🎯 startVADRecording() called');
-
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      console.warn('⚠️ Recording already in progress');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 2048;
-      source.connect(analyser);
-
-      const buffer = new Uint8Array(analyser.fftSize);
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-
-      recorderRef.current = recorder;
-      chunksRef.current = chunks;
-
-      let isRecording = false;
-      let silenceStart: number | null = null;
-      let checkInterval: number | null = null;
-
-      const START_THRESHOLD = 0.01;
-      const STOP_THRESHOLD = 0.005;
-      const SILENCE_DELAY_MS = 1200;
-      const MAX_DURATION = 6000;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        console.log('🛑 Recording stopped');
-        
-        if (checkInterval) {
-          cancelAnimationFrame(checkInterval);
-        }
-
-        if (chunks.length > 0) {
-          await sendForVerificationRef.current?.(chunks);
-        } else {
-          onVerifyStatus('⚠️ Tidak ada suara terdeteksi');
-        }
-
-        stream.getTracks().forEach((t) => t.stop());
-        audioContext.close();
-      };
-
-      const startTime = performance.now();
-
-      function check() {
-        analyser.getByteTimeDomainData(buffer);
-
-        let sum = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          const v = (buffer[i] - 128) / 128;
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / buffer.length);
-
-        if (!isRecording && rms > START_THRESHOLD) {
-          console.log(`🎙️ Voice detected (RMS: ${rms.toFixed(4)}) → START`);
-          recorder.start();
-          isRecording = true;
-          silenceStart = null;
-          onVerifyStatus('🎙️ Mendengarkan...');
-        }
-
-        if (isRecording) {
-          if (rms < STOP_THRESHOLD) {
-            if (!silenceStart) {
-              silenceStart = performance.now();
-            }
-
-            const silenceDuration = performance.now() - silenceStart;
-            if (silenceDuration > SILENCE_DELAY_MS) {
-              console.log(`✅ Silence duration: ${silenceDuration.toFixed(0)}ms → STOP`);
-              recorder.stop();
-              return;
-            }
-          } else {
-            silenceStart = null;
-          }
-        }
-
-        const elapsed = performance.now() - startTime;
-        if (elapsed > MAX_DURATION) {
-          console.warn(`⏱️ Max duration reached → FORCE STOP`);
-          if (recorder.state === 'recording') {
-            recorder.stop();
-          }
-          return;
-        }
-
-        checkInterval = requestAnimationFrame(check) as unknown as number;
-      }
-
-      onVerifyStatus('🎧 Silakan bicara...');
-      check();
-    } catch (err) {
-      console.error('❌ Failed to start VAD recording:', err);
-      onVerifyStatus('❌ Mic access failed');
-    }
-  }, [onVerifyStatus]);
-
-  // Send for verification
-  const sendForVerification = useCallback(async (chunks: Blob[]) => {
-    sendForVerificationRef.current = sendForVerification;
-    if (!tokenRef.current) {
-      console.error('❌ No auth token available');
-      onVerifyStatus('❌ Login dulu sebelum verifikasi');
-      return;
-    }
-    const blob = new Blob(chunks, { type: 'audio/wav' });
-    const form = new FormData();
-    form.append('audio', blob, 'voice.wav');
-
-    onVerifyStatus('🔍 Verifying...');
-
-    try {
-      const res = await fetch(`${SERVER_URL}/verify-voice`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${tokenRef.current}`,
-        },
-        body: form,
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-
-      const result: VerificationResult = await res.json();
-      console.log('📊 Verification result:', result);
-
-      onScore(result.score);
-      onVerifyStatus(result.verified ? '✅ Verified' : '❌ Verification failed');
-
-      if (!agentReady || !roomRef.current) {
-        console.warn('⚠️ Agent not ready, skipping data send');
-        return;
-      }
-
-      const payload = JSON.stringify({
-        type: 'VOICE_RESULT',
-        voice_verified: result.verified,
-        decision: result.status,
-        score: result.score,
-        spoof_prob: result.spoof_prob,
-        ts: Date.now(),
-      });
-
-      await roomRef.current.localParticipant.publishData(
-        new TextEncoder().encode(payload),
-        { reliable: true }
-      );
-
-      console.log('📤 Sent verification result to agent');
-    } catch (err) {
-      console.error('❌ Verification error:', err);
-      onVerifyStatus(`❌ Error: ${err}`);
-    }
-  }, [token, agentReady, onScore, onVerifyStatus, SERVER_URL]);
-
-  const stopRecording = useCallback(() => {
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      recorderRef.current.stop();
-    }
-  }, []);
+  }, [onMessage, onProductCards, onVerifyStatus, startVADRecording, stopRecording]);
 
   // Join Room
   const joinRoom = useCallback(async () => {
     try {
+      // Validate environment variables
+      if (!SERVER_URL) {
+        onRoomStatus('❌ SERVER_URL not configured. Check .env.local');
+        console.error('Missing NEXT_PUBLIC_SERVER_URL in .env.local');
+        return;
+      }
+
+      if (!LIVEKIT_URL) {
+        onRoomStatus('❌ LIVEKIT_URL not configured. Check .env.local');
+        console.error('Missing NEXT_PUBLIC_LIVEKIT_URL in .env.local');
+        return;
+      }
+
+      console.log('📡 Requesting join token with room: mainroom');
+      
       const res = await fetch(`${SERVER_URL}/join-token`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ room: "mainroom" }),
       });
 
       const data = await res.json();
@@ -316,6 +400,9 @@ export function useLiveKit({
         onRoomStatus('❌ Gagal mendapatkan token.');
         return;
       }
+
+      // Import LiveKit dynamically (Fix untuk Next.js)
+      const { Room, RoomEvent, Track, createLocalAudioTrack } = await import('livekit-client');
 
       // Create room
       const room = new Room({
@@ -336,20 +423,21 @@ export function useLiveKit({
         console.log('❌ Disconnected from room');
         onRoomStatus('❌ Disconnected from LiveKit room.');
         setIsConnected(false);
+        setAgentReady(false);
         stopRecording();
       });
 
-      room.on(RoomEvent.ParticipantConnected, (participant) => {
+      room.on(RoomEvent.ParticipantConnected, (participant: any) => {
         console.log('👤 Participant joined:', participant.identity);
         setAgentReady(true);
         onRoomStatus('🤖 Agent siap, silakan verifikasi suara');
       });
 
-      room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+      room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant: any, kind: any, topic: any) => {
         handleAgentCommand(payload, topic);
       });
 
-      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      room.on(RoomEvent.TrackSubscribed, (track: any, publication: any, participant: any) => {
         if (track.kind === Track.Kind.Audio) {
           const audioElement = track.attach();
           document.body.appendChild(audioElement);
@@ -377,12 +465,12 @@ export function useLiveKit({
           }
           checkVolume();
 
-          audioElement.play().catch((e) => console.error('Audio play error:', e));
+          audioElement.play().catch((e: any) => console.error('Audio play error:', e));
         }
       });
 
-      room.on(RoomEvent.TranscriptionReceived, (transcriptions, participant, publication) => {
-        transcriptions.forEach((segment) => {
+      room.on(RoomEvent.TranscriptionReceived, (transcriptions: any, participant: any, publication: any) => {
+        transcriptions.forEach((segment: any) => {
           if (segment.final && segment.text && segment.text.trim() !== '') {
             const isAgent =
               participant &&
@@ -406,8 +494,9 @@ export function useLiveKit({
       });
 
       // Connect
-      await room.connect(LIVEKIT_URL!, data.token);
-      console.log('Connected to room');
+      console.log('🔌 Connecting to:', LIVEKIT_URL);
+      await room.connect(LIVEKIT_URL, data.token);
+      console.log('✅ Connected to room');
 
       if (room.remoteParticipants.size > 0) {
         console.log(`✅ Found ${room.remoteParticipants.size} existing participant(s)`);
@@ -416,12 +505,12 @@ export function useLiveKit({
       }
 
       // Publish local audio
-      const track = await import('livekit-client').then((m) => m.createLocalAudioTrack());
+      const track = await createLocalAudioTrack();
       await room.localParticipant.publishTrack(track);
 
       onRoomStatus('✅ Joined room, menunggu agent...');
     } catch (err) {
-      console.error(err);
+      console.error('❌ Join room error:', err);
       onRoomStatus('❌ Server tidak bisa diakses.');
     }
   }, [
@@ -440,6 +529,7 @@ export function useLiveKit({
       await roomRef.current.disconnect();
       onRoomStatus('❌ Left LiveKit room.');
       setIsConnected(false);
+      setAgentReady(false);
       stopRecording();
     }
   }, [onRoomStatus, stopRecording]);

@@ -7,17 +7,22 @@ import LiveKitControls from './LiveKitControls';
 import AuthForms from './AuthForms';
 import VoiceEnrollment from './VoiceEnrollment';
 import StatusDisplay from './StatusDisplay';
+import { Product } from '@/types';
 
 interface ControlPanelProps {
   isConnected: boolean;
   setIsConnected: (value: boolean) => void;
   addMessage: (role: "user" | "assistant", text: string) => void;
+  onProductCards: (products: Product[]) => void;
+  setIsTyping: (value: boolean) => void;
 }
 
 export default function ControlPanel({ 
   isConnected, 
   setIsConnected,
-  addMessage 
+  addMessage,
+  onProductCards,
+  setIsTyping,
 }: ControlPanelProps) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -93,6 +98,8 @@ export default function ControlPanel({
         setScore={setScore}
         setIsAgentSpeaking={setIsAgentSpeaking}
         addMessage={addMessage}
+        onProductCards={onProductCards}
+        setIsTyping={setIsTyping}
       />
 
       <VoiceEnrollment

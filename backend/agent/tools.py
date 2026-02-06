@@ -749,3 +749,32 @@ async def pay_order(order_id: int) -> str:
     except Exception as e:
         logging.error(f"Pay order error: {e}")
         return f"Error: {str(e)}"
+
+# ==================== DEBUG/UTILITY TOOLS ====================
+@function_tool
+async def reset_voice_state() -> str:
+    """Reset voice verification state (debug tool)."""
+    agent_state["is_voice_verified"] = False
+    agent_state["voice_status"] = "RESET"
+    agent_state["last_verified_at"] = 0
+    agent_state["verify_attempts"] = 0
+    
+    auth_state["force_verify"] = True
+    auth_state["voice_feedback_sent"] = False
+    
+    return "✅ Voice state reset. Silakan verifikasi ulang."
+
+@function_tool
+async def get_system_status() -> str:
+    """Get current system status (debug tool)."""
+    status = {
+        "logged_in": auth_state["is_logged_in"],
+        "username": auth_state["username"],
+        "voice_verified": agent_state["is_voice_verified"],
+        "voice_status": agent_state["voice_status"],
+        "verify_attempts": agent_state["verify_attempts"],
+        "room_set": auth_state["room_ref"] is not None,
+        "last_search_count": len(auth_state["last_search_products"])
+    }
+    
+    return f"System status: {json.dumps(status, indent=2)}"

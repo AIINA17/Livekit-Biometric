@@ -1,7 +1,7 @@
 // components/ChatContainer.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Message, Product } from '@/types';
 import MessageBubble from './MessageBubble';
 import ProductCards from './ProductCards';
@@ -11,16 +11,18 @@ interface ChatContainerProps {
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   isConnected: boolean;
+  isTyping: boolean;
+  products: Product[];
 }
 
 export default function ChatContainer({ 
   messages, 
   setMessages,
-  isConnected 
+  isConnected,
+  isTyping,
+  products,
 }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,14 +31,6 @@ export default function ChatContainer({
   useEffect(() => {
     scrollToBottom();
   }, [messages, products, isTyping]);
-
-  // Expose setProducts to parent via global
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).chatAddProducts = setProducts;
-      (window as any).chatSetTyping = setIsTyping;
-    }
-  }, []);
 
   return (
     <div className="flex-1 bg-zinc-50 border border-gray-200 rounded-xl flex flex-col overflow-hidden">
@@ -70,7 +64,25 @@ export default function ChatContainer({
               <MessageBubble key={idx} message={msg} />
             ))}
             
-            {products.length > 0 && <ProductCards products={products} />}
+            {/* Show ProductCards in chat flow */}
+            {products.length > 0 && (
+              <div className="self-start w-full max-w-[90%] animate-fadeIn">
+                <div className="flex gap-3 items-start">
+                  {/* Agent Avatar */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0 bg-gray-100 border border-gray-200 text-black">
+                    🤖
+                  </div>
+                  
+                  {/* Product Cards Container */}
+                  <div className="flex-1">
+                    <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                      AI Assistant
+                    </div>
+                    <ProductCards products={products} />
+                  </div>
+                </div>
+              </div>
+            )}
             
             {isTyping && <TypingIndicator />}
           </>

@@ -26,6 +26,9 @@ export interface AgentCommand {
 }
 
 export interface VerificationResult {
+  decision: string;
+  reason: any;
+  best_label: any;
   verified: boolean;
   status: string;
   score: number;

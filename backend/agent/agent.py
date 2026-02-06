@@ -58,9 +58,9 @@ from agent.state import agent_state
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000
-VERIFY_INTERVAL = 180  # seconds
+VERIFY_INTERVAL = 300  # seconds
 VOICE_THRESHOLD = 0.1
-MAX_VERIFY_ATTEMPTS = 3
+MAX_VERIFY_ATTEMPTS = 5
 
 # ================= AGENT =================
 class ShoppingAgent(Agent):
@@ -93,9 +93,23 @@ class ShoppingAgent(Agent):
                 get_order_detail,
             ],
         )
-
+    
     async def on_agent_start(self, session: AgentSession):
         print("🤖 ShoppingAgent started (voice via web)")
+        
+        # AUTO-LOGIN dengan kredensial dari prompt
+        try:
+            print("🔐 Attempting auto-login with credentials...")
+            
+            # Import login function
+            from agent.tools import login as login_tool
+            
+            # Call login tool dengan kredensial tes/tes123
+            login_result = await login_tool("tes", "tes123")
+            print(f"✅ Auto-login result: {login_result}")
+            
+        except Exception as e:
+            print(f"⚠️ Auto-login failed: {e}")
 
 # ================= SERVER =================
 server = AgentServer()
@@ -134,32 +148,59 @@ async def connect(ctx: agents.JobContext):
 
     async def handle_user_join(participant):
         """Handle new participant joining - with retry logic"""
-        max_retries = 10
+        print(f"🎯 User join handler started for {participant.identity}")
+        
+        max_retries = 5
+        greeting_sent = False
         
         for attempt in range(max_retries):
             try:
+                print(f"🔹 Attempt {attempt+1} to generate greeting...")
+                
+                # Check if session is ready
+                print(f"🔍 Session status: Ready? {session.llm is not None}")
+                
                 # Try to generate greeting
-                await session.generate_reply(
+                greeting = await session.generate_reply(
                     instructions=SESSION_INSTRUCTION
                 )
                 
+                greeting_sent = True
+                print("✅ Greeting sent successfully")
+                print(f"💬 Greeting content: {greeting.text if hasattr(greeting, 'text') else 'N/A'}")
+                
                 # If successful, proceed to verification
-                print("✅ Greeting sent, starting verification...")
-                await asyncio.sleep(1.5)  # Brief delay before verification
+                print("⏱️ Waiting 1.5s before verification...")
+                await asyncio.sleep(1.5)
+                
+                print("🔔 Starting verification process...")
                 await start_verification()
+                
+                print("✅ Verification process started successfully")
                 return  # Exit function on success
 
             except RuntimeError as e:
-                # Handle "isn't running" error specifically
-                if "isn't running" in str(e):
-                    print(f"🔄 Session not ready yet (Attempt {attempt+1}/{max_retries}). Waiting...")
+                error_msg = str(e)
+                if "isn't running" in error_msg:
+                    print(f"🔄 Session not ready yet (Attempt {attempt+1}/{max_retries})")
                     await asyncio.sleep(1)
                 else:
-                    # Other errors - re-raise
-                    print(f"❌ Unexpected error during greeting: {e}")
+                    print(f"❌ Unexpected RuntimeError during greeting: {error_msg}")
+                    print(f"❌ Error type: {type(e)}")
+                    import traceback
+                    traceback.print_exc()
                     raise e
+            
+            except Exception as e:
+                print(f"❌ Unexpected error during greeting: {e}")
+                import traceback
+                traceback.print_exc()
+                break  # Break on other errors
         
-        print("⚠️ Failed to greet user after multiple attempts (Session timeout).")
+        if not greeting_sent:
+            print("⚠️ Failed to greet user after multiple attempts")
+        else:
+            print("❓ Greeting sent but verification not started?")
 
     # ================= DATA CHANNEL (VOICE VERIFICATION RESULT) =================
     @room.on("data_received")
@@ -307,18 +348,39 @@ async def connect(ctx: agents.JobContext):
     # ================= VERIFICATION FLOW =================
     async def send_cmd(action: str):
         """Send command to web client via data channel"""
-        payload = json.dumps({
-            "type": "VOICE_CMD",
-            "action": action,
-            "ts": time.time()
-        }).encode("utf-8")
+        try:
+            print(f"📤 Preparing to send VOICE_CMD: {action}")
+            
+            # Cek apakah room dan participant valid
+            if not room:
+                print("❌ No room object available")
+                return
+            
+            if not room.local_participant:
+                print("❌ No local participant in room")
+                return
+            
+            payload = json.dumps({
+                "type": "VOICE_CMD",
+                "action": action,
+                "ts": time.time()
+            }).encode("utf-8")
 
-        await room.local_participant.publish_data(
-            payload,
-            reliable=True,
-            topic="VOICE_CMD"
-        )
-        print(f"📤 Sent VOICE_CMD: {action}")
+            print(f"📦 Payload prepared: {len(payload)} bytes")
+            
+            # Kirim data
+            await room.local_participant.publish_data(
+                payload,
+                reliable=True,
+                topic="VOICE_CMD"
+            )
+            
+            print(f"✅ VOICE_CMD '{action}' sent successfully to topic: VOICE_CMD")
+            
+        except Exception as e:
+            print(f"❌ Failed to send VOICE_CMD '{action}': {e}")
+            import traceback
+            traceback.print_exc()
 
     async def start_verification():
         """Initiate voice verification process"""
@@ -361,6 +423,14 @@ async def connect(ctx: agents.JobContext):
         except Exception as e:
             print(f"❌ Error retrying verification: {e}")
 
+# ================= MANUAL VERIFICATION TRIGGER =================
+async def manual_verify_command():
+    """Manual trigger untuk testing"""
+    print("🎮 Manual verification trigger received")
+    await start_verification()
+
+# Simpan reference ke fungsi untuk dipanggil dari luar jika perlu
+global_manual_verify = manual_verify_command
 
 # ================= CLI =================
 if __name__ == "__main__":

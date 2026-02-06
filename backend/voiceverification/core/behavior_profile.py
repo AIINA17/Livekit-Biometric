@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import math
+
 
 @dataclass
 class BehaviorProfile:
@@ -8,8 +10,7 @@ class BehaviorProfile:
     var_pitch: float = 0.0
     mean_rate: float = 0.0
     var_rate: float = 0.0
-    last_update_ts: float | None = None
-
+    last_update_ts: datetime = datetime.now(timezone.utc)
     @property
     def std_pitch(self):
         return math.sqrt(self.var_pitch) if self.var_pitch > 1e-9 else 1e-6
@@ -18,7 +19,7 @@ class BehaviorProfile:
     def std_rate(self):
         return math.sqrt(self.var_rate) if self.var_rate > 1e-9 else 1e-6
     
-    def update(self, pitch: float, rate: float, ts: float):
+    def update(self, pitch: float, rate: float, ts: datetime):
         self.n_samples += 1
         
         # Update pitch stats

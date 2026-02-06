@@ -1,20 +1,24 @@
 import os
 import uuid
+import numpy as np
+import librosa
 
 from dotenv import load_dotenv
-from time import time
+from datetime import datetime, timezone
 
-from fastapi import FastAPI, UploadFile, File, Request, HTTPException
+
+from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
+# from supabase_auth import datetime
 import torch
 
 from voiceverification.services.biometric_service import BiometricService
 
 
 from voiceverification.core.decision_engine import Decision
-
+from voiceverification.core.behavior_profile import BehaviorProfile
 
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
@@ -83,7 +87,7 @@ async def join_token():
     """
 
 
-    room_name = "mainroom"
+    room_name = "test-room" 
 
     grant = VideoGrants(
         room_join=True,
@@ -122,8 +126,6 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "reason": "No enrollment profile found for user."
         }
     
-    behavior_profile = load_behavior_profile(user_id)
-
 
     # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
@@ -135,8 +137,7 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
         # 3️⃣ SINGLE CALL — semua logika di dalam
         result = bio.verify_against_multiple_embeddings(
             live_wav=wav_path,
-            enroll_embeddings=enroll_embeddings,          # optional
-            behavior_profile=behavior_profile,
+            enroll_embeddings=enroll_embeddings,
             user_id=user_id,
         )
 
@@ -156,6 +157,7 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "spoof_prob": result["spoof_prob"],
             "best_index": result["best_index"],
             "all_scores": result["all_scores"],
+            "matched_label": result["best_label"],
         }
 
     finally:
@@ -180,39 +182,55 @@ async def health_check():
 # =========================
 
 @app.post("/enroll-voice")
-async def enroll_voice(request: Request, audio: UploadFile = File(...)):
-    """
-    Enroll user voice:
-    - extract speaker embedding
-    - normalize & save to Supabase
-    - NO decision engine
-    - NO adaptive update
-    """
+async def enroll_voice(
+    request: Request, 
+    audio: UploadFile = File(...), 
+    label: str = Form(...)
+):
     user_id = get_user_id_from_request(request)
 
     if count_enrollments(user_id) >= 3:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Maximum enrollment reached (3)."
         )
 
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
 
-
-
     try:
         verifier = SpeakerVerifier()
 
-        # 1️⃣ Extract embedding
+        # 1️⃣ Extract & save embedding
         embedding = verifier.extract_embedding(wav_path)
+        save_embedding(user_id, embedding, label)
 
-        # 2️⃣ Save to Supabase
-        save_embedding(user_id, embedding)
+        # 2️⃣ Bootstrap behavior profile (ONLY IF NOT EXISTS)
+        behavior_profile = load_behavior_profile(user_id, label)
+
+        if behavior_profile is None:
+            y, sr = librosa.load(wav_path, sr=16000)
+
+            pitch = float(np.nanmean(
+                librosa.yin(y, fmin=50, fmax=300, sr=sr)
+            ))
+            rate = float(len(y) / sr)
+
+            behavior_profile = BehaviorProfile(
+                n_samples=1,
+                mean_pitch=pitch,
+                var_pitch=0.0,
+                mean_rate=rate,
+                var_rate=0.0,
+                last_update_ts=datetime.now(timezone.utc)
+            )
+
+            save_behavior_profile(user_id, label, behavior_profile)
 
         return {
             "status": "OK",
             "message": "Voice enrollment successful",
+            "label": label
         }
 
     finally:

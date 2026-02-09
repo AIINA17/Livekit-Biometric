@@ -67,20 +67,39 @@ def is_voice_verified() -> bool:
     return True
 
 
-def require_voice_verification(action_name: str, params=None) -> str:
+def require_voice_verification(action_name: str, params=None) -> str | None:
     """
-    Check voice verification status.
-    Returns error message if not verified, None if verified.
+    Soft gate for sensitive actions (checkout, payment, etc).
+    Chat is NEVER blocked.
     """
-    if not is_voice_verified():
-        auth_state["force_verify"] = True
-        auth_state["pending_action"] = action_name
-        auth_state["pending_params"] = params or {}
+
+    status = agent_state.get("voice_status", "UNKNOWN")
+
+    # ✅ Sudah verified → boleh lanjut
+    if status == "VERIFIED":
+        return None
+
+    # 🟡 Voice belum jelas → minta lanjut ngobrol
+    if status == "REPEAT":
         return (
-            f"⚠️ Gue gak bisa {action_name} sekarang karena suara lo belum diverifikasi. "
-            "Coba ngomong lagi supaya gue bisa memastikan ini beneran lo."
+            f"Sebentar ya, suara kamu belum cukup jelas. "
+            f"Kita lanjut ngobrol dulu bentar sebelum gue {action_name}."
         )
-    return None
+
+    # 🔴 Voice ditolak → jelasin batasan, tapi jangan usir
+    if status == "DENIED":
+        return (
+            f"Maaf, suara kamu belum bisa dikenali. "
+            f"Kamu tetap bisa browsing dan ngobrol, "
+            f"tapi untuk {action_name} fitur ini dibatasi."
+        )
+
+    # ⚪ UNKNOWN / belum pernah verifikasi
+    return (
+        f"Sebelum gue {action_name}, gue perlu memastikan suara kamu dulu. "
+        f"Coba ngobrol sebentar ya."
+    )
+
 
 async def send_product_cards(products: list):
     """Send product cards to frontend via data channel with 2s delay for better timing"""

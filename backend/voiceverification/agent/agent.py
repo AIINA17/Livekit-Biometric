@@ -14,9 +14,12 @@ from dotenv import load_dotenv
 
 # ================= PATH FIX =================
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(AGENT_DIR)
-ENV_PATH = os.path.join(BASE_DIR, ".env")
+VOICEVERIFICATION_DIR = os.path.dirname(AGENT_DIR)
+BACKEND_DIR = os.path.dirname(VOICEVERIFICATION_DIR)
+
+ENV_PATH = os.path.join(BACKEND_DIR, ".env")
 load_dotenv(ENV_PATH)
+
 
 # ================= LIVEKIT =================
 from livekit import agents
@@ -31,6 +34,11 @@ from livekit.plugins import google, noise_cancellation
 
 # ================= APP LOGIC =================
 from agent.prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
+
+# ================ LOGS =================
+from db.conversation_logs import insert_conversation_log
+from db.conversation_sessions import create_conversation_session
+
 
 # IMPORT SEMUA TOOLS BARU DISINI
 from agent.tools import (
@@ -126,6 +134,13 @@ async def connect(ctx: agents.JobContext):
         asyncio.create_task(handle_user_join(participant))
 
     async def handle_user_join(participant):
+        session_id = create_conversation_session(
+            user_id=participant.identity,
+            label=f"Session for {participant.identity}"
+        )
+
+        agent_state["conversation_session_id"] = session_id
+
         max_retries = 10
         for attempt in range(max_retries):
             try:
@@ -154,68 +169,46 @@ async def connect(ctx: agents.JobContext):
     # ================= DATA CHANNEL (VOICE VERIF RESULT) =================
     @room.on("data_received")
     def on_room_data_received(packet):
-        """
-        data: bytes (payload raw)
-        participant: RemoteParticipant (pengirim)
-        kind: DataPacketKind
-        topic: str (opsional)
-        """
         try:
-
-            data = packet.data  # bytes
-
-            if not data or len(data) == 0:
-                print("⚠️ Empty data packet received")
+            # 🔥 FILTER TOPIC
+            if packet.topic != "VOICE_RESULT":
                 return
 
-            print("📩 RAW payload bytes:", data) 
+            data = packet.data
+            if not data:
+                return
 
-            # Decode JSON
             payload_str = data.decode("utf-8").strip()
             if not payload_str.startswith("{"):
                 return
-            
-            decoded_data = json.loads(payload_str)
 
-            print("📦 Parsed data:", decoded_data)
+            decoded = json.loads(payload_str)
+            print("📦 Voice result:", decoded)
 
-            # Logika Verifikasi
-            decision = decoded_data.get("decision")
+            decision = decoded.get("decision") or decoded.get("status")
+
 
             if decision == "VERIFIED":
                 agent_state["is_voice_verified"] = True
                 agent_state["voice_status"] = "VERIFIED"
-                agent_state["last_verified_at"] = time.time()
                 agent_state["verify_attempts"] = 0
+                agent_state["last_verified_at"] = time.time()
                 print("🔐 Voice VERIFIED")
 
             elif decision == "REPEAT":
                 agent_state["is_voice_verified"] = False
                 agent_state["voice_status"] = "REPEAT"
                 agent_state["verify_attempts"] += 1
-                print("🔁 Voice unclear, ask repeat")
-                asyncio.create_task(retry_verification())
+                print("🔁 Voice REPEAT")
 
-            else:  # DENIED
+            elif decision == "DENIED":
                 agent_state["is_voice_verified"] = False
                 agent_state["voice_status"] = "DENIED"
                 agent_state["verify_attempts"] += 1
                 print("❌ Voice DENIED")
 
-                if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
-                    asyncio.create_task(
-                        session.generate_reply(
-                            instructions="Sorry bro, suara lu ga bisa di verifikasi. Jadi gue ga bisa lanjut bantu lu belanja. Ciao!"
-                        )
-                    )
-
-                else:
-                    asyncio.create_task(retry_verification())
-
         except Exception as e:
-            print(f"❌ Error processing data packet: {e}")
-
-    
+            print("❌ Error processing VOICE_RESULT:", e)
 
     # ================= LOGGING PERCAKAPAN =================
     @session.on("conversation_item_added")
@@ -225,10 +218,37 @@ async def connect(ctx: agents.JobContext):
         
         if not text: return
 
+        if role not in ("user", "assistant"):
+            return
+    
+        insert_conversation_log(
+            session_id=agent_state["conversation_session_id"], 
+            role=role, 
+            content=text
+        )
+
         # ================= USER MESSAGE =================
         if role == "user":
             print(f"\n🎤 User: {text}")
+            
+            if agent_state["voice_status"] != "VERIFIED":
 
+                # 🚫 STOP retry kalau sudah kebanyakan
+                if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
+                    print("🚫 Max verification attempts reached")
+
+                    asyncio.create_task(
+                        session.generate_reply(
+                            instructions=(
+                                "Maaf ya, gue gak bisa verifikasi suara lo. "
+                                "Kita tetep bisa ngobrol kok, tapi untuk aksi sensitif "
+                                "kayak checkout atau pembayaran, gue gak bisa lanjutin."
+                            )
+                        )
+                    )
+
+                else:
+                    asyncio.create_task(start_verification())
             # Check shutdown command
             if text:
                 text_lower = text.lower()
@@ -271,6 +291,8 @@ async def connect(ctx: agents.JobContext):
                     topic="chat"
                 )
             )
+
+    # ================= GOODBYE HANDLER =================
     async def handle_goodbye():
         """Handle goodbye - say farewell and disconnect from room"""
         try:

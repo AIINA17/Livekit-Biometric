@@ -1,36 +1,36 @@
 // types/index.ts
 
 export interface Message {
-  role: "user" | "assistant";
-  text: string;
-  timestamp: Date;
+    role: "user" | "assistant";
+    text: string;
+    timestamp: Date;
 }
 
 export interface Product {
-  id: number;
-  name: string;
-  price: number;
-  rating: number;
-  category: string;
-  image_url?: string;
-  stock: number;
+    id: number;
+    name: string;
+    price: number;
+    rating: number;
+    category: string;
+    image_url?: string;
+    stock: number;
 }
 
 export interface AgentCommand {
-  type: string;
-  action?: string;
-  products?: Product[];
-  text?: string;
-  role?: string;
-  [key: string]: any;
+    type: string;
+    action?: string;
+    products?: Product[];
+    text?: string;
+    role?: string;
+    [key: string]: any;
 }
 
 export interface VerificationResult {
-  decision: string;
-  reason: any;
-  best_label: any;
-  verified: boolean;
-  status: string;
-  score: number;
-  spoof_prob?: number;
+    decision: string;
+    reason: any;
+    best_label: any;
+    verified: boolean;
+    status: string;
+    score: number;
+    spoof_prob?: number;
 }

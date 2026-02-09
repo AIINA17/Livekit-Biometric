@@ -11,15 +11,21 @@ class BehaviorProfile:
     mean_rate: float = 0.0
     var_rate: float = 0.0
     last_update_ts: datetime = datetime.now(timezone.utc)
+    
     @property
     def std_pitch(self):
-        return math.sqrt(self.var_pitch) if self.var_pitch > 1e-9 else 1e-6
+        # Calculate actual variance (M2 / n) before sqrt
+        actual_var = self.var_pitch / self.n_samples if self.n_samples > 0 else 0
+        return math.sqrt(actual_var) if actual_var > 1e-9 else 1e-6
     
     @property
     def std_rate(self):
-        return math.sqrt(self.var_rate) if self.var_rate > 1e-9 else 1e-6
+        actual_var = self.var_rate / self.n_samples if self.n_samples > 0 else 0
+        return math.sqrt(actual_var) if actual_var > 1e-9 else 1e-6
     
     def update(self, pitch: float, rate: float, ts: datetime):
+        if isinstance(ts, (int, float)):
+            ts = datetime.fromtimestamp(ts, tz=timezone.utc)
         self.n_samples += 1
         
         # Update pitch stats

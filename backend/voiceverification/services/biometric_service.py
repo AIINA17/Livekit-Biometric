@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 import librosa
 import numpy as np
-from time import time
+
 from typing import List, Optional
 
 from voiceverification.core.behavior_profile import BehaviorProfile
@@ -67,7 +68,7 @@ class BiometricService:
 
             if behavior_profile is None:
                 behavior_profile = BehaviorProfile()
-                behavior_profile.update(pitch, rate, time())
+                behavior_profile.update(pitch, rate, datetime.now(timezone.utc))
                 save_behavior_profile(user_id, best_label, behavior_profile)
             else:
                 # 🧠 compute behavior score
@@ -89,7 +90,7 @@ class BiometricService:
                     last_update_time=behavior_profile.last_update_ts,
                     is_retry=is_retry,
                 ):
-                    behavior_profile.update(pitch, rate, time())
+                    behavior_profile.update(pitch, rate, datetime.now(timezone.utc))
                     save_behavior_profile(user_id, best_label, behavior_profile)
 
         # 5. Log

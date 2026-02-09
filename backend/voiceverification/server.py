@@ -11,7 +11,6 @@ from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
-# from supabase_auth import datetime
 import torch
 
 from voiceverification.services.biometric_service import BiometricService
@@ -27,14 +26,18 @@ from voiceverification.db.behavior_repo import (load_behavior_profile,save_behav
 
 from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
 
+# =========================
+# ENV SETUP
+# =========================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_PATH)
+
 from voiceverification.auth.auth_utils import get_user_id_from_request
 
 from voiceverification.models.speaker_verifier import SpeakerVerifier
 
-# =========================
-# ENV SETUP
-# =========================
-load_dotenv()
+
 
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET")

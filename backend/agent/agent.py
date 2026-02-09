@@ -10,15 +10,13 @@ import asyncio
 import time
 
 from requests import session
+from dotenv import load_dotenv
 
 # ================= PATH FIX =================
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(AGENT_DIR)
-sys.path.insert(0, AGENT_DIR)
-sys.path.insert(0, BASE_DIR)
-
-from dotenv import load_dotenv
-load_dotenv()
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_PATH)
 
 # ================= LIVEKIT =================
 from livekit import agents

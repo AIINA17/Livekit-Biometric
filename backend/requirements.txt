@@ -3,6 +3,8 @@ livekit==1.0.23
 livekit_api==1.1.0
 livekit_blingfire==1.1.0
 livekit_plugins_noise_cancellation==0.2.5
+livekit-agents==1.3.12
+livekit-plugins-google==1.3.12
 
 # LLM & tools
 mem0ai
@@ -35,6 +37,8 @@ speechbrain==0.5.16
 huggingface_hub==0.16.4
 
 webrtcvad==2.0.10
+
+supabase==2.27.3
 
 # Torch
 # ⚠ DO NOT install torch here

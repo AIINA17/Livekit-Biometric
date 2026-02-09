@@ -6,7 +6,10 @@ __pycache__/
 node_modules/
 
 # env file
-/.env
+.env
+**/.env
+backend/.env
+
 
 # audio cache folder
 /audio_cache/

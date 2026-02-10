@@ -1,6 +1,5 @@
 import os
-from typing import Dict, Dict
-from typing import List
+
 import uuid
 import numpy as np
 import librosa
@@ -14,7 +13,7 @@ from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
-from realtime import List
+
 from pydantic import BaseModel
 from voiceverification.db.connection import get_supabase
 from voiceverification.services.biometric_service import BiometricService
@@ -311,16 +310,28 @@ async def get_conversation_logs(
 class UpdateSessionLabelPayload(BaseModel):
     label: str
 
-@app.patch("/conversation-sessions/{session_id}/label")
+@@app.patch("/conversation-sessions/{session_id}/label")
 async def update_session_label(
     session_id: str,
     payload: UpdateSessionLabelPayload,
     request: Request
 ):
     user_id = get_user_id_from_request(request)
+    sb = get_supabase()
 
-    # (opsional) validasi ownership session di sini
-    # misalnya cek session.user_id == user_id
+    if not payload.label.strip():
+        raise HTTPException(400, "Label cannot be empty")
+
+    session_check = (
+        sb.table("conversation_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not session_check.data:
+        raise HTTPException(404, "Session not found")
 
     update_conversation_session_label(
         session_id=session_id,

@@ -1,3 +1,6 @@
+import asyncio
+import json
+import json
 import logging
 import time
 import requests
@@ -25,13 +28,17 @@ auth_state = {
     "voice_score": 0.0,
     "voice_status_detail": "INIT",
     "verify_attempts": 0,
- 
+
     "voice_feedback_sent": False,
     "force_verify": False,
     "_force_started": False,
     "pending_action": None,
     "pending_params": None,
+<<<<<<< HEAD:backend/agent/tools.py
     
+=======
+
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
     # Product cards state
     "last_search_products": [],
     "room_ref": None,  # Will be set by agent
@@ -64,20 +71,38 @@ def is_voice_verified() -> bool:
     return True
 
 
-def require_voice_verification(action_name: str, params=None) -> str:
+def require_voice_verification(action_name: str, params=None) -> str | None:
     """
-    Check voice verification status.
-    Returns error message if not verified, None if verified.
+    Soft gate for sensitive actions (checkout, payment, etc).
+    Chat is NEVER blocked.
     """
-    if not is_voice_verified():
-        auth_state["force_verify"] = True
-        auth_state["pending_action"] = action_name
-        auth_state["pending_params"] = params or {}
+
+    status = agent_state.get("voice_status", "UNKNOWN")
+
+    # ✅ Sudah verified → boleh lanjut
+    if status == "VERIFIED":
+        return None
+
+    # 🟡 Voice belum jelas → minta lanjut ngobrol
+    if status == "REPEAT":
         return (
-            f"⚠️ Gue gak bisa {action_name} sekarang karena suara lo belum diverifikasi. "
-            "Coba ngomong lagi supaya gue bisa memastikan ini beneran lo."
+            f"Sebentar ya, suara kamu belum cukup jelas. "
+            f"Kita lanjut ngobrol dulu bentar sebelum gue {action_name}."
         )
-    return None
+
+    # 🔴 Voice ditolak → jelasin batasan, tapi jangan usir
+    if status == "DENIED":
+        return (
+            f"Maaf, suara kamu belum bisa dikenali. "
+            f"Kamu tetap bisa browsing dan ngobrol, "
+            f"tapi untuk {action_name} fitur ini dibatasi."
+        )
+
+    # ⚪ UNKNOWN / belum pernah verifikasi
+    return (
+        f"Sebelum gue {action_name}, gue perlu memastikan suara kamu dulu. "
+        f"Coba ngobrol sebentar ya."
+    )
 
 
 async def send_product_cards(products: list):
@@ -87,9 +112,12 @@ async def send_product_cards(products: list):
         return
     
     try:
+<<<<<<< HEAD:backend/agent/tools.py
         import json
         import asyncio
         
+=======
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
         # ⏰ DELAY 2 DETIK BIAR AGENT NGOMONG DULU
         await asyncio.sleep(2)
         
@@ -107,7 +135,10 @@ async def send_product_cards(products: list):
     except Exception as e:
         logging.error(f"❌ Error sending product cards: {e}")
 
+<<<<<<< HEAD:backend/agent/tools.py
 
+=======
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
 # ==================== GENERAL TOOLS ====================
 
 @function_tool
@@ -265,7 +296,11 @@ async def search_product(
     sort_by: str = ""
 ) -> str:
     """
+<<<<<<< HEAD:backend/agent/tools.py
     Search for products in the e-commerce website and display product cards in UI.
+=======
+    Search for products in the e-commerce website.
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
     
     Args:
         query: Search keyword for product name (optional - leave empty to get all products)
@@ -365,6 +400,7 @@ async def get_product_detail(product_id: int) -> str:
             else:
                 stock_status = "lagi habis"
             
+<<<<<<< HEAD:backend/agent/tools.py
             # Voice-friendly response
             result = f"Oke, ini detail {name}. "
             result += f"Harganya {price:,} rupiah, kategori {category}, rating {rating} bintang. "
@@ -373,6 +409,22 @@ async def get_product_detail(product_id: int) -> str:
             result += f"Mau gue tambahin ke keranjang?"
             
             return result
+=======
+            return f"""📦 Detail Produk:
+                • Nama: {name}
+                • Harga: Rp {price:,}
+                • Kategori: {category}
+                • Rating: {rating}⭐
+                • Stok: {stock_status}
+
+                📝 Deskripsi:
+                {description}
+
+                🖼️ Foto Produk: {image_url}
+
+                🔗 Link Produk: {product_link}
+                """
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
         
         return "Produk tidak ditemukan."
             
@@ -380,7 +432,10 @@ async def get_product_detail(product_id: int) -> str:
         logging.error(f"Get product error: {e}")
         return f"Error: {str(e)}"
 
+<<<<<<< HEAD:backend/agent/tools.py
 
+=======
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
 @function_tool
 async def get_product_from_search_index(index: int) -> str:
     """
@@ -399,7 +454,10 @@ async def get_product_from_search_index(index: int) -> str:
     
     return f"Produk nomor {index} adalah {product_name} (ID: {product_id})"
 
+<<<<<<< HEAD:backend/agent/tools.py
 
+=======
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
 # ==================== CART TOOLS ====================
 
 @function_tool
@@ -453,16 +511,29 @@ async def get_cart() -> str:
             result = f"Di keranjang lo ada {len(items)} item: "
             total = 0
             
+<<<<<<< HEAD:backend/agent/tools.py
             for i, item in enumerate(items, 1):
+=======
+            for item in items:
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
                 product = item.get("products", {})
                 subtotal = product.get("price", 0) * item.get("quantity", 1)
                 total += subtotal
                 
+<<<<<<< HEAD:backend/agent/tools.py
                 result += f"{i}. {product.get('name', 'Unknown')} "
                 result += f"{item.get('quantity')} unit, {subtotal:,} rupiah. "
             
             result += f"Total semua {total:,} rupiah. Mau checkout sekarang?"
             
+=======
+                result += f"• {product.get('name', 'Unknown')}\n"
+                result += f"  {item.get('quantity')}x Rp {product.get('price', 0):,} = Rp {subtotal:,}\n"
+                result += f"  (Cart ID: {item.get('id')})\n\n"
+            
+            result += f"💰 Total: Rp {total:,}\n\n"
+            result += f"🔗 Link Keranjang: {BASE_URL}/cart"
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
             return result
         
         return "Gagal mengambil data keranjang."
@@ -582,10 +653,22 @@ async def checkout(payment_method: str = "GoPay") -> str:
                         timeout=5
                     )
                 
+<<<<<<< HEAD:backend/agent/tools.py
                 order_id = order.get('id')
                 total_price = order.get('total', 0)
                 
                 return f"Yeay! Pesanan berhasil dibuat! Order ID {order_id}, total {total_price:,} rupiah, pakai {payment_method}. Mau langsung bayar sekarang?"
+=======
+                return f"""🎉 Pesanan berhasil dibuat!
+
+📦 Order ID: {order.get('id')}
+💳 Metode Bayar: {payment_method}
+💰 Total: Rp {order.get('total', 0):,}
+📋 Status: {order.get('status', 'pending')}
+
+🔗 Link Pesanan: {BASE_URL}/orders/{order.get('id')}
+🔗 Semua Pesanan: {BASE_URL}/orders"""
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
             else:
                 return f"Checkout gagal: {data.get('message', 'Unknown error')}"
         
@@ -702,7 +785,11 @@ async def pay_order(order_id: int) -> str:
     ⚠️ This action requires voice verification for security.
     """
     # Check voice verification for sensitive action
+<<<<<<< HEAD:backend/agent/tools.py
     voice_error = require_voice_verification("bayar order", {"order_id": order_id})
+=======
+    voice_error = require_voice_verification("bayar order")
+>>>>>>> origin/main:backend/voiceverification/agent/tools.py
     if voice_error:
         return voice_error
     

@@ -9,14 +9,20 @@ import json
 import asyncio
 import time
 
+<<<<<<< HEAD:backend/agent/agent.py
+=======
+from requests import session
+from dotenv import load_dotenv
+
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 # ================= PATH FIX =================
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(AGENT_DIR)
-sys.path.insert(0, AGENT_DIR)
-sys.path.insert(0, BASE_DIR)
+VOICEVERIFICATION_DIR = os.path.dirname(AGENT_DIR)
+BACKEND_DIR = os.path.dirname(VOICEVERIFICATION_DIR)
 
-from dotenv import load_dotenv
-load_dotenv()
+ENV_PATH = os.path.join(BACKEND_DIR, ".env")
+load_dotenv(ENV_PATH)
+
 
 # ================= LIVEKIT =================
 from livekit import agents
@@ -32,7 +38,16 @@ from livekit.plugins import google, noise_cancellation
 # ================= APP LOGIC =================
 from agent.prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
 
+<<<<<<< HEAD:backend/agent/agent.py
 # IMPORT SEMUA TOOLS
+=======
+# ================ LOGS =================
+from db.conversation_logs import insert_conversation_log
+from db.conversation_sessions import create_conversation_session
+
+
+# IMPORT SEMUA TOOLS BARU DISINI
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 from agent.tools import (
     get_weather,
     web_search,
@@ -52,7 +67,11 @@ from agent.tools import (
     pay_order,
     get_order_history,
     get_order_detail,
+<<<<<<< HEAD:backend/agent/agent.py
     auth_state,  # Import auth_state untuk set room reference
+=======
+    auth_state
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 )
 from agent.state import agent_state
 
@@ -60,7 +79,11 @@ from agent.state import agent_state
 SAMPLE_RATE = 16000
 VERIFY_INTERVAL = 300  # seconds
 VOICE_THRESHOLD = 0.1
+<<<<<<< HEAD:backend/agent/agent.py
 MAX_VERIFY_ATTEMPTS = 5
+=======
+MAX_VERIFY_ATTEMPTS = 3
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 
 # ================= AGENT =================
 class ShoppingAgent(Agent):
@@ -91,6 +114,7 @@ class ShoppingAgent(Agent):
                 pay_order,
                 get_order_history,
                 get_order_detail,
+                
             ],
         )
     
@@ -128,12 +152,17 @@ async def connect(ctx: agents.JobContext):
     agent_state["room"] = room
     print("✅ Room set in agent_state")
 
+<<<<<<< HEAD:backend/agent/agent.py
     # IMPORTANT: Set room_ref untuk tools.py
     from agent.tools import auth_state as tools_auth_state
     tools_auth_state["room_ref"] = room
     print("✅ Room reference set for product cards")
     
     # ================= AGENT SESSION =================
+=======
+    auth_state["room_ref"] = room
+
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
             voice="Charon"
@@ -147,12 +176,23 @@ async def connect(ctx: agents.JobContext):
         asyncio.create_task(handle_user_join(participant))
 
     async def handle_user_join(participant):
+<<<<<<< HEAD:backend/agent/agent.py
         """Handle new participant joining - with retry logic"""
         print(f"🎯 User join handler started for {participant.identity}")
         
         max_retries = 5
         greeting_sent = False
         
+=======
+        session_id = create_conversation_session(
+            user_id=participant.identity,
+            label=f"Session for {participant.identity}"
+        )
+
+        agent_state["conversation_session_id"] = session_id
+
+        max_retries = 10
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
         for attempt in range(max_retries):
             try:
                 print(f"🔹 Attempt {attempt+1} to generate greeting...")
@@ -205,6 +245,7 @@ async def connect(ctx: agents.JobContext):
     # ================= DATA CHANNEL (VOICE VERIFICATION RESULT) =================
     @room.on("data_received")
     def on_room_data_received(packet):
+<<<<<<< HEAD:backend/agent/agent.py
         """
         Handle incoming data from web client (voice verification results)
         """
@@ -213,13 +254,27 @@ async def connect(ctx: agents.JobContext):
             participant = packet.participant
 
             print("📩 RAW payload bytes:", data[:100])  # Log first 100 bytes
+=======
+        try:
+            # 🔥 FILTER TOPIC
+            if packet.topic != "VOICE_RESULT":
+                return
 
-            # Decode JSON
-            payload_str = data.decode("utf-8")
-            decoded_data = json.loads(payload_str)
+            data = packet.data
+            if not data:
+                return
 
-            print("📦 Parsed data:", decoded_data)
+            payload_str = data.decode("utf-8").strip()
+            if not payload_str.startswith("{"):
+                return
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 
+            decoded = json.loads(payload_str)
+            print("📦 Voice result:", decoded)
+
+            decision = decoded.get("decision") or decoded.get("status")
+
+<<<<<<< HEAD:backend/agent/agent.py
             # Get data type
             data_type = decoded_data.get("type")
             
@@ -280,6 +335,30 @@ async def connect(ctx: agents.JobContext):
                 )
             else:
                 asyncio.create_task(retry_verification())
+=======
+
+            if decision == "VERIFIED":
+                agent_state["is_voice_verified"] = True
+                agent_state["voice_status"] = "VERIFIED"
+                agent_state["verify_attempts"] = 0
+                agent_state["last_verified_at"] = time.time()
+                print("🔐 Voice VERIFIED")
+
+            elif decision == "REPEAT":
+                agent_state["is_voice_verified"] = False
+                agent_state["voice_status"] = "REPEAT"
+                agent_state["verify_attempts"] += 1
+                print("🔁 Voice REPEAT")
+
+            elif decision == "DENIED":
+                agent_state["is_voice_verified"] = False
+                agent_state["voice_status"] = "DENIED"
+                agent_state["verify_attempts"] += 1
+                print("❌ Voice DENIED")
+
+        except Exception as e:
+            print("❌ Error processing VOICE_RESULT:", e)
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 
     # ================= LOGGING PERCAKAPAN =================
     @session.on("conversation_item_added")
@@ -287,9 +366,39 @@ async def connect(ctx: agents.JobContext):
         role = event.item.role
         text = event.item.text_content
         
+        if not text: return
+
+        if role not in ("user", "assistant"):
+            return
+    
+        insert_conversation_log(
+            session_id=agent_state["conversation_session_id"], 
+            role=role, 
+            content=text
+        )
+
+        # ================= USER MESSAGE =================
         if role == "user":
             print(f"\n🎤 User: {text}")
             
+            if agent_state["voice_status"] != "VERIFIED":
+
+                # 🚫 STOP retry kalau sudah kebanyakan
+                if agent_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
+                    print("🚫 Max verification attempts reached")
+
+                    asyncio.create_task(
+                        session.generate_reply(
+                            instructions=(
+                                "Maaf ya, gue gak bisa verifikasi suara lo. "
+                                "Kita tetep bisa ngobrol kok, tapi untuk aksi sensitif "
+                                "kayak checkout atau pembayaran, gue gak bisa lanjutin."
+                            )
+                        )
+                    )
+
+                else:
+                    asyncio.create_task(start_verification())
             # Check shutdown command
             if text:
                 text_lower = text.lower()
@@ -305,10 +414,35 @@ async def connect(ctx: agents.JobContext):
                 if any(keyword in text_lower for keyword in shutdown_keywords):
                     print("\n⚠️ Shutdown command detected. Closing session...")
                     asyncio.create_task(handle_goodbye())
-        
+
+            asyncio.create_task(
+                room.local_participant.publish_data(
+                    json.dumps({
+                        "type": "USER_MESSAGE",
+                        "text": text,
+                        "ts": time.time()
+                    }).encode("utf-8"),
+                    reliable=True,
+                    topic="chat"
+                )
+            )
+        # ================= AGENT MESSAGE =================
         elif role == "assistant":
             print(f"🤖 Agent: {text}")
 
+            asyncio.create_task(
+                room.local_participant.publish_data(
+                    json.dumps({
+                        "type": "AGENT_MESSAGE",
+                        "text": text,
+                        "ts": time.time()
+                    }).encode("utf-8"),
+                    reliable=True,
+                    topic="chat"
+                )
+            )
+
+    # ================= GOODBYE HANDLER =================
     async def handle_goodbye():
         """Handle goodbye - say farewell and disconnect from room"""
         try:
@@ -341,6 +475,9 @@ async def connect(ctx: agents.JobContext):
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=noise_cancellation.BVC()
+            ),
+            audio_output=room_io.AudioOutputOptions(
+                sample_rate=SAMPLE_RATE 
             )
         ),
     )
@@ -383,6 +520,7 @@ async def connect(ctx: agents.JobContext):
             traceback.print_exc()
 
     async def start_verification():
+<<<<<<< HEAD:backend/agent/agent.py
         """Initiate voice verification process"""
         try:
             print("🎙️ Starting voice verification process...")
@@ -422,6 +560,30 @@ async def connect(ctx: agents.JobContext):
             
         except Exception as e:
             print(f"❌ Error retrying verification: {e}")
+=======
+        await asyncio.sleep(0.5)
+
+        print("👂 Mengizinkan user bicara...")
+        await send_cmd("READY_FOR_USER")
+
+        await asyncio.sleep(0.3)
+
+        print("🎙️ Memulai proses verifikasi suara...")
+        await send_cmd("START_RECORD")
+
+
+    # ================= RETRY VERIFICATION =================
+    async def retry_verification():
+        """Mengirim perintah verifikasi ulang ke web setelah interval tertentu"""
+        print("🔄 Mengirim perintah verifikasi ulang ke web...")
+        await asyncio.sleep(0.5)
+        await send_cmd("READY_FOR_USER")
+
+        await asyncio.sleep(0.3)
+
+        print("🎙️ Memulai proses verifikasi suara...")
+        await send_cmd("START_RECORD")
+>>>>>>> origin/main:backend/voiceverification/agent/agent.py
 
 # ================= MANUAL VERIFICATION TRIGGER =================
 async def manual_verify_command():

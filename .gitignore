@@ -8,6 +8,7 @@ node_modules/
 # env file
 .env
 **/.env
+backend/.env
 
 
 # audio cache folder

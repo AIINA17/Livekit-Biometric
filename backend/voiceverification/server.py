@@ -4,8 +4,12 @@ import numpy as np
 import librosa
 
 from dotenv import load_dotenv
-from time import time
+from datetime import datetime, timezone
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,6 +23,7 @@ from voiceverification.core.behavior_profile import BehaviorProfile
 from voiceverification.utils.audio import save_audio, normalize_audio
 from voiceverification.utils.csv_log import log_verify
 
+<<<<<<< HEAD
 from voiceverification.db.behavior_repo import (
     load_behavior_profile,
     save_behavior_profile
@@ -28,13 +33,23 @@ from voiceverification.db.speaker_repo import (
     save_embedding,
     load_all_embeddings
 )
-from voiceverification.auth.auth_utils import get_user_id_from_request
-from voiceverification.models.speaker_verifier import SpeakerVerifier
+=======
+from voiceverification.db.behavior_repo import (load_behavior_profile,save_behavior_profile)
+
+from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
 
 # =========================
 # ENV SETUP
 # =========================
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_PATH)
+
+>>>>>>> origin/main
+from voiceverification.auth.auth_utils import get_user_id_from_request
+from voiceverification.models.speaker_verifier import SpeakerVerifier
+
+
 
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
@@ -88,7 +103,17 @@ async def startup_event():
 # =========================
 @app.post("/join-token")
 async def join_token():
+<<<<<<< HEAD
     room_name = "mainroom"
+=======
+    """
+    Transport-only token.
+    Allows user to join room so agent can greet first.
+    """
+
+
+    room_name = "testroom" 
+>>>>>>> origin/main
 
     grant = VideoGrants(
         room_join=True,
@@ -116,8 +141,25 @@ async def join_token():
 # =========================
 @app.post("/verify-voice")
 async def verify_voice(request: Request, audio: UploadFile = File(...)):
+<<<<<<< HEAD
     print(f"🔍 Received verification request from: {request.client.host}")
     wav_path = None
+=======
+    user_id = get_user_id_from_request(request)
+
+    # 1️⃣ Load enrollment & behavior
+    enroll_embeddings = load_all_embeddings(user_id)
+    if not enroll_embeddings:
+        return {
+            "status": "ERROR",
+            "reason": "No enrollment profile found for user."
+        }
+    
+
+    # 2️⃣ Save & normalize live audio
+    wav_path = save_audio(audio)
+    normalize_audio(wav_path)
+>>>>>>> origin/main
 
     try:
         user_id = get_user_id_from_request(request)
@@ -202,6 +244,7 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
         )
 
         return {
+<<<<<<< HEAD
             "verified": result.get("verified", False),
             "decision": result.get("decision", "ERROR"),
             "reason": result.get("reason", "Unknown"),
@@ -222,6 +265,16 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "best_index": -1,
             "all_scores": [],
             "best_label": None,
+=======
+            "verified": result["verified"],
+            "status": result["decision"],
+            "reason": result["reason"],
+            "score": result["score"],
+            "spoof_prob": result["spoof_prob"],
+            "best_index": result["best_index"],
+            "all_scores": result["all_scores"],
+            "matched_label": result["best_label"],
+>>>>>>> origin/main
         }
 
     finally:
@@ -243,8 +296,13 @@ async def health_check():
 # =========================
 @app.post("/enroll-voice")
 async def enroll_voice(
+<<<<<<< HEAD
     request: Request,
     audio: UploadFile = File(...),
+=======
+    request: Request, 
+    audio: UploadFile = File(...), 
+>>>>>>> origin/main
     label: str = Form(...)
 ):
     user_id = get_user_id_from_request(request)
@@ -260,12 +318,26 @@ async def enroll_voice(
 
     try:
         verifier = SpeakerVerifier()
+<<<<<<< HEAD
         embedding = verifier.extract_embedding(wav_path)
         save_embedding(user_id, embedding, label)
 
         behavior_profile = load_behavior_profile(user_id, label)
         if behavior_profile is None:
             y, sr = librosa.load(wav_path, sr=16000)
+=======
+
+        # 1️⃣ Extract & save embedding
+        embedding = verifier.extract_embedding(wav_path)
+        save_embedding(user_id, embedding, label)
+
+        # 2️⃣ Bootstrap behavior profile (ONLY IF NOT EXISTS)
+        behavior_profile = load_behavior_profile(user_id, label)
+
+        if behavior_profile is None:
+            y, sr = librosa.load(wav_path, sr=16000)
+
+>>>>>>> origin/main
             pitch = float(np.nanmean(
                 librosa.yin(y, fmin=50, fmax=300, sr=sr)
             ))
@@ -277,8 +349,14 @@ async def enroll_voice(
                 var_pitch=0.0,
                 mean_rate=rate,
                 var_rate=0.0,
+<<<<<<< HEAD
                 last_update_ts=time()
             )
+=======
+                last_update_ts=datetime.now(timezone.utc)
+            )
+
+>>>>>>> origin/main
             save_behavior_profile(user_id, label, behavior_profile)
 
         return {

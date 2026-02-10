@@ -1,7 +1,10 @@
 import os
+from typing import Dict, Dict
+from typing import List
 import uuid
 import numpy as np
 import librosa
+import torch
 
 from dotenv import load_dotenv
 from datetime import datetime, timezone
@@ -11,8 +14,9 @@ from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
-import torch
-
+from realtime import List
+from pydantic import BaseModel
+from voiceverification.db.connection import get_supabase
 from voiceverification.services.biometric_service import BiometricService
 
 
@@ -25,6 +29,8 @@ from voiceverification.utils.csv_log import log_verify
 from voiceverification.db.behavior_repo import (load_behavior_profile,save_behavior_profile)
 
 from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
+
+from voiceverification.db.conversation_sessions import update_conversation_session_label
 
 # =========================
 # ENV SETUP
@@ -239,3 +245,82 @@ async def enroll_voice(
     finally:
         if os.path.exists(wav_path):
             os.remove(wav_path)
+
+@app.get("/logs/sessions")
+async def get_conversation_sessions(request: Request):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    res = (
+        sb.table("conversation_sessions")
+        .select("id, label, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "OK",
+        "sessions": res.data or []
+    }
+
+
+@app.get("/logs/sessions/{session_id}")
+async def get_conversation_logs(
+    session_id: str,
+    request: Request
+):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    # Optional: pastikan session milik user
+    session_check = (
+        sb.table("conversation_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not session_check.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    logs = (
+        sb.table("conversation_logs")
+        .select("role, content, created_at")
+        .eq("session_id", session_id)
+        .order("created_at")
+        .execute()
+    )
+
+    return {
+        "status": "OK",
+        "session_id": session_id,
+        "logs": logs.data or []
+    }
+
+
+class UpdateSessionLabelPayload(BaseModel):
+    label: str
+
+@app.patch("/conversation-sessions/{session_id}/label")
+async def update_session_label(
+    session_id: str,
+    payload: UpdateSessionLabelPayload,
+    request: Request
+):
+    user_id = get_user_id_from_request(request)
+
+    # (opsional) validasi ownership session di sini
+    # misalnya cek session.user_id == user_id
+
+    update_conversation_session_label(
+        session_id=session_id,
+        label=payload.label
+    )
+
+    return {
+        "status": "OK",
+        "session_id": session_id,
+        "label": payload.label
+    }

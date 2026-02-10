@@ -1,5 +1,5 @@
 from uuid import UUID
-from db.connection import get_supabase
+from voiceverification.db.connection import get_supabase
 
 def create_conversation_session(
         user_id: str,
@@ -22,3 +22,18 @@ def create_conversation_session(
     # Supabase return inserted row
     session = response.data[0]
     return UUID(session["id"])
+
+def update_conversation_session_label(session_id: str, label: str):
+    sb = get_supabase()
+
+    res = (
+        sb.table("conversation_sessions")
+        .update({"label": label})
+        .eq("id", session_id)
+        .execute()
+    )
+
+    if res.error:
+        raise RuntimeError(res.error)
+
+    return res.data

@@ -15,21 +15,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from livekit.api import AccessToken, VideoGrants
 
 from pydantic import BaseModel
-from voiceverification.db.connection import get_supabase
-from voiceverification.services.biometric_service import BiometricService
+from db.connection import get_supabase
+from services.biometric_service import BiometricService
 
 
-from voiceverification.core.decision_engine import Decision
-from voiceverification.core.behavior_profile import BehaviorProfile
+from core.decision_engine import Decision
+from core.behavior_profile import BehaviorProfile
 
-from voiceverification.utils.audio import save_audio, normalize_audio
-from voiceverification.utils.csv_log import log_verify
+from utils.audio import save_audio, normalize_audio
+from utils.csv_log import log_verify
 
-from voiceverification.db.behavior_repo import (load_behavior_profile,save_behavior_profile)
+from db.behavior_repo import (load_behavior_profile,save_behavior_profile)
 
-from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
+from db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
 
-from voiceverification.db.conversation_sessions import update_conversation_session_label
+from db.conversation_sessions import update_conversation_session_label
 
 # =========================
 # ENV SETUP
@@ -38,9 +38,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(ENV_PATH)
 
-from voiceverification.auth.auth_utils import get_user_id_from_request
+from auth.auth_utils import get_user_id_from_request
 
-from voiceverification.models.speaker_verifier import SpeakerVerifier
+from models.speaker_verifier import SpeakerVerifier
 
 
 

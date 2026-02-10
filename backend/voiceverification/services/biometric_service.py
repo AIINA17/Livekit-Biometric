@@ -4,14 +4,14 @@ import numpy as np
 
 from typing import List, Optional
 
-from voiceverification.core.behavior_profile import BehaviorProfile
-from voiceverification.models.speaker_verifier import SpeakerVerifier
-from voiceverification.core.asvspoof import compute_score
-from voiceverification.core.decision_engine import decide, Decision
-from voiceverification.core.trusted_update import TrustedUpdatePolicy
-from voiceverification.core.behavior_scoring import compute_behavior_score
+from core.behavior_profile import BehaviorProfile
+from models.speaker_verifier import SpeakerVerifier
+from core.asvspoof import compute_score
+from core.decision_engine import decide, Decision
+from core.trusted_update import TrustedUpdatePolicy
+from core.behavior_scoring import compute_behavior_score
 
-from voiceverification.db.behavior_repo import save_behavior_profile, load_behavior_profile
+from db.behavior_repo import save_behavior_profile, load_behavior_profile
 
 class BiometricService:
     def __init__(self, device="cpu"):

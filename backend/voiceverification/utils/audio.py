@@ -5,7 +5,7 @@ import librosa
 import soundfile as sf
 
 from fastapi import UploadFile
-from voiceverification.utils.ffmpeg import webm_to_wav
+from utils.ffmpeg import webm_to_wav
 
 UPLOAD_DIR = "tmp_audio"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

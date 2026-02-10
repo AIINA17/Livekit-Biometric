@@ -1,7 +1,7 @@
 from enum import Enum
 from dataclasses import dataclass
 
-from voiceverification.core.user_profile import UserProfile
+from core.user_profile import UserProfile
 
 class Decision(Enum):
     VERIFIED = "VERIFIED"

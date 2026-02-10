@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Dict
 from uuid import UUID
 
-from voiceverification.db.connection import get_supabase
+from db.connection import get_supabase
 
 def insert_conversation_log(
         session_id: UUID,

@@ -1,5 +1,5 @@
-from voiceverification.core.decision_engine import Decision, decide, build_decision_config
-from voiceverification.core.user_profile import UserProfile
+from core.decision_engine import Decision, decide, build_decision_config
+from core.user_profile import UserProfile
 
 
 user = UserProfile(

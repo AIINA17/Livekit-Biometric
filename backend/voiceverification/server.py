@@ -310,7 +310,7 @@ async def get_conversation_logs(
 class UpdateSessionLabelPayload(BaseModel):
     label: str
 
-@@app.patch("/conversation-sessions/{session_id}/label")
+@app.patch("/conversation-sessions/{session_id}/label")
 async def update_session_label(
     session_id: str,
     payload: UpdateSessionLabelPayload,

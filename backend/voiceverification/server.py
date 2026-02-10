@@ -246,6 +246,9 @@ async def enroll_voice(
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
+# =========================
+# CONVERSATION LOGS & SESSIONS
+# =========================
 @app.get("/logs/sessions")
 async def get_conversation_sessions(request: Request):
     user_id = get_user_id_from_request(request)
@@ -264,7 +267,9 @@ async def get_conversation_sessions(request: Request):
         "sessions": res.data or []
     }
 
-
+# =========================
+# GET LOGS BY SESSION ID
+# =========================
 @app.get("/logs/sessions/{session_id}")
 async def get_conversation_logs(
     session_id: str,
@@ -300,6 +305,9 @@ async def get_conversation_logs(
     }
 
 
+# =========================
+# UPDATE SESSION LABEL
+# =========================
 class UpdateSessionLabelPayload(BaseModel):
     label: str
 
@@ -324,3 +332,32 @@ async def update_session_label(
         "session_id": session_id,
         "label": payload.label
     }
+
+# =========================
+# DELETE SESSION (AND LOGS)
+# =========================
+@app.delete("/conversation-sessions/{session_id}")
+async def delete_conversation_session(
+    session_id: str,
+    request: Request
+):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    # (opsional) validasi ownership session di sini
+    session_check = (
+        sb.table("conversation_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not session_check.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Hapus logs terkait
+    sb.table("conversation_logs")\
+        .delete()\
+        .eq("session_id", session_id)\
+        .execute()  

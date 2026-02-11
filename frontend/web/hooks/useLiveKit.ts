@@ -106,10 +106,6 @@ export function useLiveKit({
 
     const startVADRecording = async () => {
         if (recorderRef.current) return;
-        if (!token) {
-            onVerifyStatus("❌ Login dulu sebelum verifikasi");
-            return;
-        }
 
         setUiState("LISTENING");
         onVerifyStatus("🎧 Silakan bicara...");

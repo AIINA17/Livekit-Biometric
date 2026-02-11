@@ -1,6 +1,6 @@
 # voiceverification/db/behavior_repo.py
 from .connection import get_supabase
-from voiceverification.core.behavior_profile import BehaviorProfile
+from core.behavior_profile import BehaviorProfile
 from datetime import datetime, timezone
 
 def load_behavior_profile(user_id: str, label:str) -> BehaviorProfile:

@@ -1,6 +1,5 @@
 import os
-from typing import Dict, Dict
-from typing import List
+
 import uuid
 import numpy as np
 import librosa
@@ -17,32 +16,23 @@ from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from livekit.api import AccessToken, VideoGrants
-from realtime import List
+
 from pydantic import BaseModel
-from voiceverification.db.connection import get_supabase
-from voiceverification.services.biometric_service import BiometricService
-from voiceverification.core.decision_engine import Decision
-from voiceverification.core.behavior_profile import BehaviorProfile
+from db.connection import get_supabase
+from services.biometric_service import BiometricService
 
-from voiceverification.utils.audio import save_audio, normalize_audio
-from voiceverification.utils.csv_log import log_verify
 
-<<<<<<< HEAD
-from voiceverification.db.behavior_repo import (
-    load_behavior_profile,
-    save_behavior_profile
-)
-from voiceverification.db.speaker_repo import (
-    count_enrollments,
-    save_embedding,
-    load_all_embeddings
-)
-=======
-from voiceverification.db.behavior_repo import (load_behavior_profile,save_behavior_profile)
+from core.decision_engine import Decision
+from core.behavior_profile import BehaviorProfile
 
-from voiceverification.db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
+from utils.audio import save_audio, normalize_audio
+from utils.csv_log import log_verify
 
-from voiceverification.db.conversation_sessions import update_conversation_session_label
+from db.behavior_repo import (load_behavior_profile,save_behavior_profile)
+
+from db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
+
+from db.conversation_sessions import update_conversation_session_label
 
 # =========================
 # ENV SETUP
@@ -51,9 +41,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(ENV_PATH)
 
->>>>>>> origin/main
-from voiceverification.auth.auth_utils import get_user_id_from_request
-from voiceverification.models.speaker_verifier import SpeakerVerifier
+from auth.auth_utils import get_user_id_from_request
+
+from models.speaker_verifier import SpeakerVerifier
 
 
 
@@ -447,9 +437,21 @@ async def update_session_label(
     request: Request
 ):
     user_id = get_user_id_from_request(request)
+    sb = get_supabase()
 
-    # (opsional) validasi ownership session di sini
-    # misalnya cek session.user_id == user_id
+    if not payload.label.strip():
+        raise HTTPException(400, "Label cannot be empty")
+
+    session_check = (
+        sb.table("conversation_sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not session_check.data:
+        raise HTTPException(404, "Session not found")
 
     update_conversation_session_label(
         session_id=session_id,

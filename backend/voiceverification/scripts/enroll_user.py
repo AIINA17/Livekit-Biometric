@@ -1,5 +1,5 @@
 import numpy as np
-from voiceverification.models.speaker_verifier import SpeakerVerifier
+from models.speaker_verifier import SpeakerVerifier
 
 ENROLL_WAV = "voiceverification/dataset/enroll.wav"
 OUT_EMB = "voiceverification/dataset/enroll_embedding.npy"

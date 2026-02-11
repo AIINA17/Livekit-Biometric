@@ -2,11 +2,11 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve
-from voiceverification.core.decision_engine import DecisionConfig
+from core.decision_engine import DecisionConfig
 
 # === IMPORT MODEL KAMU ===
-from voiceverification.services.biometric_service import BiometricService
-from voiceverification.core.replay_heuristic import replay_heuristic
+from services.biometric_service import BiometricService
+from core.replay_heuristic import replay_heuristic
 
 ENROLL = "voiceverification/dataset/enroll.wav"
 GENUINE_DIR = "voiceverification/dataset/genuine"

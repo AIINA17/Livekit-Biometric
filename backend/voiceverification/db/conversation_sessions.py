@@ -1,5 +1,5 @@
 from uuid import UUID
-from voiceverification.db.connection import get_supabase
+from db.connection import get_supabase
 
 def create_conversation_session(
         user_id: str,

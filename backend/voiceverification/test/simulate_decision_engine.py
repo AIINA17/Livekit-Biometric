@@ -2,14 +2,14 @@ import os
 import numpy as np
 from collections import Counter
 
-from voiceverification.services.biometric_service import BiometricService
-from voiceverification.core.replay_heuristic import replay_heuristic
-from voiceverification.core.decision_engine import (
+from services.biometric_service import BiometricService
+from core.replay_heuristic import replay_heuristic
+from core.decision_engine import (
     decide,
     build_decision_config,
     Decision,
 )
-from voiceverification.core.user_profile import UserProfile
+from core.user_profile import UserProfile
 
 import matplotlib.pyplot as plt
 

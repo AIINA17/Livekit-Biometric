@@ -95,7 +95,7 @@ async def join_token():
     """
 
 
-    room_name = "testroom" 
+    room_name = "rooms" 
 
     grant = VideoGrants(
         room_join=True,

@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Outfit, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-outfit",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-space",
+});
 
 export const metadata: Metadata = {
-  title: "Voice Shopping Assistant",
-  description: "Voice-powered e-commerce with LiveKit & Claude",
+  title: "Happy - Voice Shopping Assistant",
+  description: "Your personal voice-powered shopping assistant",
 };
 
 export default function RootLayout({
@@ -15,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <body className={inter.className}>{children}</body>
+    <html lang="id" className={`${outfit.variable} ${spaceGrotesk.variable}`}>
+      <body className="font-outfit">{children}</body>
     </html>
   );
 }

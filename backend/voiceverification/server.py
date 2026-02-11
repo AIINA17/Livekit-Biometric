@@ -8,10 +8,7 @@ import torch
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/main
 from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -53,11 +50,7 @@ LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
 if not LIVEKIT_API_KEY or not LIVEKIT_API_SECRET:
     raise RuntimeError("LIVEKIT credentials not set")
 
-# =========================
-# VERIFY ATTEMPT LIMIT (⬅️ TAMBAHAN)
-# =========================
-MAX_VERIFY_ATTEMPTS = 3
-verify_attempts: dict[str, int] = {}
+
 
 # =========================
 # APP INIT
@@ -66,18 +59,14 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-    ],
+    allow_origins=["*"],  # ⚠️ restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-biometric: BiometricService | None = None
 
+biometric: BiometricService | None = None
 
 def get_biometric() -> BiometricService:
     global biometric
@@ -89,19 +78,17 @@ def get_biometric() -> BiometricService:
     return biometric
 
 
+
 @app.on_event("startup")
 async def startup_event():
     get_biometric()
     print("🚀 Server is ready.")
 
 # =========================
-# JOIN TOKEN
+#  JOIN TOKEN (NO VERIFICATION)
 # =========================
 @app.post("/join-token")
 async def join_token():
-<<<<<<< HEAD
-    room_name = "mainroom"
-=======
     """
     Transport-only token.
     Allows user to join room so agent can greet first.
@@ -109,7 +96,6 @@ async def join_token():
 
 
     room_name = "testroom" 
->>>>>>> origin/main
 
     grant = VideoGrants(
         room_join=True,
@@ -119,10 +105,10 @@ async def join_token():
     )
 
     token = AccessToken(
-        LIVEKIT_API_KEY,
-        LIVEKIT_API_SECRET,
+        LIVEKIT_API_KEY, 
+        LIVEKIT_API_SECRET, 
     )
-
+    
     token.with_identity(str(uuid.uuid4()))
     token.with_grants(grant)
 
@@ -132,15 +118,12 @@ async def join_token():
         "room": room_name
     }
 
+
 # =========================
-# VOICE VERIFICATION
+# 2️⃣ VOICE VERIFICATION ONLY
 # =========================
 @app.post("/verify-voice")
 async def verify_voice(request: Request, audio: UploadFile = File(...)):
-<<<<<<< HEAD
-    print(f"🔍 Received verification request from: {request.client.host}")
-    wav_path = None
-=======
     user_id = get_user_id_from_request(request)
 
     # 1️⃣ Load enrollment & behavior
@@ -155,113 +138,26 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
     # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
->>>>>>> origin/main
 
     try:
-        user_id = get_user_id_from_request(request)
-        print(f"👤 User ID: {user_id}")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-    # =========================
-    # 🔐 VERIFY ATTEMPT GUARD (⬅️ TAMBAHAN)
-    # =========================
-    attempt = verify_attempts.get(user_id, 0)
-    if attempt >= MAX_VERIFY_ATTEMPTS:
-        print(f"🚫 User {user_id} LOCKED after {attempt} attempts")
-        return {
-            "decision": "LOCKED",
-            "verified": False,
-            "reason": "Maximum verification attempts reached. Please login again.",
-            "score": 0.0,
-            "spoof_prob": 0.0,
-            "best_index": -1,
-            "all_scores": [],
-            "best_label": None,
-        }
-
-    try:
-        enroll_embeddings = load_all_embeddings(user_id)
-        if not enroll_embeddings:
-            return {
-                "decision": "ERROR",
-                "verified": False,
-                "reason": "No enrollment profile found for user.",
-                "score": 0.0,
-                "spoof_prob": 0.0,
-                "best_index": -1,
-                "all_scores": [],
-                "best_label": None,
-            }
-
-        wav_path = save_audio(audio)
-        normalize_audio(wav_path)
-
-        y, sr = librosa.load(wav_path, sr=16000)
-        duration = len(y) / sr
-
-        if duration < 1.0:
-            return {
-                "decision": "REPEAT",
-                "verified": False,
-                "reason": "Audio too short. Please speak longer.",
-                "score": 0.0,
-                "spoof_prob": 0.0,
-                "best_index": -1,
-                "all_scores": [],
-                "best_label": None,
-            }
-
         bio = get_biometric()
 
-        # =========================
-        # 🔬 BIOMETRIC VERIFY
-        # =========================
+        # 3️⃣ SINGLE CALL — semua logika di dalam
         result = bio.verify_against_multiple_embeddings(
             live_wav=wav_path,
             enroll_embeddings=enroll_embeddings,
             user_id=user_id,
         )
 
-        # ⬆️ increment attempt counter (⬅️ TAMBAHAN)
-        verify_attempts[user_id] = attempt + 1
-        print(
-            f"🔢 Verification attempt {verify_attempts[user_id]}/{MAX_VERIFY_ATTEMPTS}"
-        )
-
-        # reset kalau sukses
-        if result.get("verified"):
-            verify_attempts[user_id] = 0
-
+        # 4️⃣ Logging (optional)
         log_verify(
             result["score"],
             result["spoof_prob"],
             Decision.VERIFIED if result["verified"] else Decision.DENIED
         )
 
+        # 5️⃣ Response ke client / agent
         return {
-<<<<<<< HEAD
-            "verified": result.get("verified", False),
-            "decision": result.get("decision", "ERROR"),
-            "reason": result.get("reason", "Unknown"),
-            "score": result.get("score", 0.0),
-            "spoof_prob": result.get("spoof_prob", 0.0),
-            "best_index": result.get("best_index", -1),
-            "all_scores": result.get("all_scores", []),
-            "best_label": result.get("matched_label", None),
-        }
-
-    except Exception as e:
-        return {
-            "decision": "ERROR",
-            "verified": False,
-            "reason": str(e),
-            "score": 0.0,
-            "spoof_prob": 0.0,
-            "best_index": -1,
-            "all_scores": [],
-            "best_label": None,
-=======
             "verified": result["verified"],
             "status": result["decision"],
             "reason": result["reason"],
@@ -270,35 +166,33 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "best_index": result["best_index"],
             "all_scores": result["all_scores"],
             "matched_label": result["best_label"],
->>>>>>> origin/main
         }
 
     finally:
-        if wav_path and os.path.exists(wav_path):
+        if os.path.exists(wav_path):
             os.remove(wav_path)
+
+
 
 # =========================
 # HEALTH CHECK
 # =========================
 @app.get("/health")
 async def health_check():
+    bio_service = get_biometric()
     return {
         "status": "OK",
         "biometric_service": biometric is not None
     }
 
 # =========================
-# VOICE ENROLLMENT
+# VOICE ENROLLMENT 
 # =========================
+
 @app.post("/enroll-voice")
 async def enroll_voice(
-<<<<<<< HEAD
-    request: Request,
-    audio: UploadFile = File(...),
-=======
     request: Request, 
     audio: UploadFile = File(...), 
->>>>>>> origin/main
     label: str = Form(...)
 ):
     user_id = get_user_id_from_request(request)
@@ -314,14 +208,6 @@ async def enroll_voice(
 
     try:
         verifier = SpeakerVerifier()
-<<<<<<< HEAD
-        embedding = verifier.extract_embedding(wav_path)
-        save_embedding(user_id, embedding, label)
-
-        behavior_profile = load_behavior_profile(user_id, label)
-        if behavior_profile is None:
-            y, sr = librosa.load(wav_path, sr=16000)
-=======
 
         # 1️⃣ Extract & save embedding
         embedding = verifier.extract_embedding(wav_path)
@@ -333,7 +219,6 @@ async def enroll_voice(
         if behavior_profile is None:
             y, sr = librosa.load(wav_path, sr=16000)
 
->>>>>>> origin/main
             pitch = float(np.nanmean(
                 librosa.yin(y, fmin=50, fmax=300, sr=sr)
             ))
@@ -345,14 +230,9 @@ async def enroll_voice(
                 var_pitch=0.0,
                 mean_rate=rate,
                 var_rate=0.0,
-<<<<<<< HEAD
-                last_update_ts=time()
-            )
-=======
                 last_update_ts=datetime.now(timezone.utc)
             )
 
->>>>>>> origin/main
             save_behavior_profile(user_id, label, behavior_profile)
 
         return {

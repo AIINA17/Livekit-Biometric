@@ -39,7 +39,7 @@ export function useLiveKit({
 
     const joinRoom = useCallback(async () => {
         onRoomStatus("⏳ Connecting…");
-
+        
         const res = await fetch(`${SERVER_URL}/join-token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

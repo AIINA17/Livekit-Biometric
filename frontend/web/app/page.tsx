@@ -1,13 +1,19 @@
-//page.tsx
-// app/page.tsx
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import Sidebar from '@/components/Sidebar';
-import ChatArea from '@/components/ChatArea';
-import AuthCard from '@/components/AuthCard';
-import { Message, Product } from '@/types';
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import Sidebar from "@/components/Sidebar";
+import ChatArea from "@/components/ChatArea";
+import AuthCard from "@/components/AuthCard";
+import { Message, Product } from "@/types";
+import { Session } from "@supabase/supabase-js";
+
+interface SessionLog {
+    role: "user" | "assistant";
+    content: string;
+    created_at: string;
+    product_cards?: string | null;
+}
 
 export default function Home() {
   // Auth state
@@ -45,25 +51,10 @@ export default function Home() {
       }
       setIsLoading(false);
     };
-    checkSession();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setIsLoggedIn(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Message handler
-  const addMessage = (role: "user" | "assistant", text: string) => {
-    if (!text || text.trim() === "") return;
-    
-    const newMessage: Message = {
-      role,
-      text: text.trim(),
-      timestamp: new Date(),
+    // Product handler
+    const handleProductCards = (newProducts: Product[]) => {
+        setProducts(newProducts);
     };
     
     setMessages((prev) => [...prev, newMessage]);
@@ -146,24 +137,131 @@ export default function Home() {
       return;
     }
 
-    setSession(data.session);
-    setIsLoggedIn(true);
-  };
+    // ✅ SESSION HANDLERS - ADDED
+    const handleSelectSession = async (sessionId: string) => {
+        if (!session?.access_token || !SERVER_URL) return;
 
-  const handleSignup = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+        console.log("📂 Loading session:", sessionId);
+        setCurrentSessionId(sessionId);
 
-    if (error) {
-      alert("Signup gagal: " + error.message);
-      return;
+        try {
+            const res = await fetch(
+                `${SERVER_URL}/logs/sessions/${sessionId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                },
+            );
+
+            if (!res.ok) {
+                console.error("Failed to load session logs:", res.status);
+                return;
+            }
+
+            const data = await res.json();
+            console.log("📥 Loaded logs:", data.logs?.length || 0);
+
+            // Parse logs into messages and products
+            const newMessages: Message[] = [];
+            let newProducts: Product[] = [];
+
+            const logs: SessionLog[] = data.logs || [];
+
+            logs.forEach((log) => {
+                if (log.product_cards) {
+                    try {
+                        const products = JSON.parse(
+                            log.product_cards,
+                        ) as Product[];
+                        newProducts = products;
+                    } catch (e) {
+                        console.error("Failed to parse product_cards:", e);
+                    }
+                } else {
+                    newMessages.push({
+                        role: log.role,
+                        text: log.content,
+                        timestamp: new Date(log.created_at),
+                    });
+                }
+            });
+
+            setMessages(newMessages);
+            setProducts(newProducts);
+        } catch (error) {
+            console.error("Error loading session:", error);
+        }
+    };
+
+    const handleNewChat = () => {
+        setCurrentSessionId(null);
+        setMessages([]);
+        setProducts([]);
+    };
+
+    // Auth handlers
+    const handleLogin = async (email: string, password: string) => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        setSession(data.session);
+        setIsLoggedIn(true);
+    };
+
+    const handleSignup = async (email: string, password: string) => {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+        });
+
+        if (error) {
+            alert("Signup gagal: " + error.message);
+            return;
+        }
+
+        if (!data.session) {
+            alert("Cek email kamu untuk verifikasi akun");
+            return;
+        }
+
+        setSession(data.session);
+        setIsLoggedIn(true);
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        setSession(null);
+        setIsLoggedIn(false);
+        setMessages([]);
+        setProducts([]);
+        setIsConnected(false);
+        setCurrentSessionId(null); // ✅ Clear session on logout
+    };
+
+    // Loading screen
+    if (isLoading) {
+        return (
+            <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
+                <div className="text-(--text-secondary)">Loading...</div>
+            </main>
+        );
     }
 
-    if (!data.session) {
-      alert("Cek email kamu untuk verifikasi akun");
-      return;
+    // NOT LOGGED IN - Show Auth Card
+    if (!isLoggedIn) {
+        return (
+            <main className="h-screen bg-(--bg-primary) flex items-center justify-center p-4">
+                <AuthCard onLogin={handleLogin} onSignup={handleSignup} />
+            </main>
+        );
     }
 
     setSession(data.session);
@@ -183,21 +281,41 @@ export default function Home() {
   // Loading screen
   if (isLoading) {
     return (
-      <main className="h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="text-[var(--text-secondary)]">Loading...</div>
-      </main>
-    );
-  }
+        <main className="h-screen bg-(--bg-primary) flex overflow-hidden">
+            {/* Sidebar */}
+            <Sidebar
+                isLoggedIn={isLoggedIn}
+                userEmail={session?.user?.email || ""}
+                onLogout={handleLogout}
+                token={session?.access_token || null}
+                setVerifyStatus={setVerifyStatus}
+                currentSessionId={currentSessionId}
+                onSelectSession={handleSelectSession}
+                onNewChat={handleNewChat}
+            />
 
-  // NOT LOGGED IN - Show Auth Card
-  if (!isLoggedIn) {
-    return (
-      <main className="h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
-        <AuthCard 
-          onLogin={handleLogin}
-          onSignup={handleSignup}
-        />
-      </main>
+            {/* Main Chat Area */}
+            <ChatArea
+                messages={messages}
+                products={products}
+                isLoggedIn={isLoggedIn}
+                token={session?.access_token || null}
+                isConnected={isConnected}
+                isTyping={isTyping}
+                isSpeaking={isSpeaking}
+                speakingRole={speakingRole}
+                setMessages={setMessages}
+                setIsConnected={setIsConnected}
+                setIsTyping={setIsTyping}
+                setIsSpeaking={setIsSpeaking}
+                setSpeakingRole={setSpeakingRole}
+                addMessage={addMessage}
+                onProductCards={handleProductCards}
+                setVerifyStatus={setVerifyStatus}
+                setRoomStatus={setRoomStatus}
+                setScore={setScore}
+            />
+        </main>
     );
   }
 

@@ -1,4 +1,3 @@
-// components/Sidebar.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -58,32 +57,37 @@ export default function Sidebar({
 
     // Fetch sessions dari backend
     useEffect(() => {
-        if (isLoggedIn && token) {
-            fetchSessions();
-        }
-    }, [isLoggedIn, token]);
+        if (!isLoggedIn || !token) return;
 
-    const fetchSessions = async () => {
-        if (!token) return;
+        let isMounted = true;
 
-        setLoading(true);
-        try {
-            const res = await fetch(`${SERVER_URL}/logs/sessions`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+        const loadSessions = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`${SERVER_URL}/logs/sessions`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
-            const data = await res.json();
+                const data = await res.json();
 
-            if (data.status === "OK") {
-                setSessions(data.sessions || []);
+                if (isMounted && data.status === "OK") {
+                    setSessions(data.sessions || []);
+                }
+            } catch (error) {
+                console.error("Error fetching sessions:", error);
+            } finally {
+                if (isMounted) setLoading(false);
             }
-        } catch (error) {
-            console.error("Error fetching sessions:", error);
-        }
-        setLoading(false);
-    };
+        };
+
+        loadSessions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isLoggedIn, token, SERVER_URL]);
 
     // Rename session
     const handleRename = async (sessionId: string, newLabel: string) => {
@@ -268,7 +272,7 @@ export default function Sidebar({
                         <span className="flex-1 text-left text-[var(--text-primary)] text-sm truncate">
                             {userEmail}
                         </span>
-                        <MenuIcon />
+                        <IoMenu className="w-5 h-5" />
                     </button>
                 </div>
             )}

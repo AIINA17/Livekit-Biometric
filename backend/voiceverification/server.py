@@ -1,6 +1,7 @@
+import asyncio
 import os
+import time
 
-import uuid
 import numpy as np
 import librosa
 import torch
@@ -12,7 +13,8 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from livekit.api import AccessToken, VideoGrants
+from livekit.api import AccessToken, VideoGrants, LiveKitAPI, CreateAgentDispatchRequest
+from livekit.api import ListParticipantsRequest
 
 from pydantic import BaseModel
 from db.connection import get_supabase
@@ -75,6 +77,7 @@ def get_biometric() -> BiometricService:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         biometric = BiometricService(device=device)
         print("✅ BiometricService initialized")
+        print(f"Using device: {device}")
     return biometric
 
 
@@ -88,14 +91,9 @@ async def startup_event():
 #  JOIN TOKEN (NO VERIFICATION)
 # =========================
 @app.post("/join-token")
-async def join_token():
-    """
-    Transport-only token.
-    Allows user to join room so agent can greet first.
-    """
-
-
-    room_name = "rooms" 
+async def join_token(request: Request):
+    user_id = get_user_id_from_request(request)
+    room_name = f"user-{user_id}"
 
     grant = VideoGrants(
         room_join=True,
@@ -105,11 +103,11 @@ async def join_token():
     )
 
     token = AccessToken(
-        LIVEKIT_API_KEY, 
-        LIVEKIT_API_SECRET, 
+        LIVEKIT_API_KEY,
+        LIVEKIT_API_SECRET,
     )
-    
-    token.with_identity(str(uuid.uuid4()))
+
+    token.with_identity(user_id)
     token.with_grants(grant)
 
     return {
@@ -117,6 +115,7 @@ async def join_token():
         "token": token.to_jwt(),
         "room": room_name
     }
+
 
 
 # =========================
@@ -143,11 +142,16 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
         bio = get_biometric()
 
         # 3️⃣ SINGLE CALL — semua logika di dalam
-        result = bio.verify_against_multiple_embeddings(
+        start = time.time()
+
+        result = await asyncio.to_thread(
+            bio.verify_against_multiple_embeddings,
             live_wav=wav_path,
             enroll_embeddings=enroll_embeddings,
             user_id=user_id,
         )
+
+        print("Verify took:", time.time() - start)
 
         # 4️⃣ Logging (optional)
         log_verify(
@@ -211,6 +215,21 @@ async def enroll_voice(
 
         # 1️⃣ Extract & save embedding
         embedding = verifier.extract_embedding(wav_path)
+
+        existing_label = (
+            get_supabase()
+            .table("speaker_profiles")
+            .select("label")
+            .eq("user_id", user_id)
+            .eq("label", label)
+            .execute()
+        )
+        if existing_label.data:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Enrollment with label '{label}' already exists."
+            )
+        
         save_embedding(user_id, embedding, label)
 
         # 2️⃣ Bootstrap behavior profile (ONLY IF NOT EXISTS)
@@ -372,3 +391,140 @@ async def delete_conversation_session(
         .delete()\
         .eq("session_id", session_id)\
         .execute()  
+    
+
+#========================
+# GET ALL ENROLLMENTS
+#========================
+@app.get("/enrollments")
+async def get_enrollments(request: Request):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    res = (
+        sb.table("speaker_profiles")
+        .select("id, label, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    return {
+        "status": "OK",
+        "total": len(res.data or []),
+        "enrollments": res.data or []
+    }
+
+# =========================
+# DELETE ENROLLMENT BY ID
+# =========================
+@app.delete("/enrollments/{enrollment_id}")
+async def delete_enrollment(
+    enrollment_id: str,
+    request: Request
+):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    # (opsional) validasi ownership enrollment di sini
+    enrollment_check = (
+        sb.table("speaker_profiles")
+        .select("id, label")
+        .eq("id", enrollment_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not enrollment_check.data:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    label = enrollment_check.data[0]["label"]
+
+    # Hapus enrollment
+    sb.table("speaker_profiles")\
+        .delete()\
+        .eq("id", enrollment_id)\
+        .execute()
+    
+    # Hapus behavior profile terkait
+    sb.table("behavior_profiles")\
+        .delete()\
+        .eq("user_id", user_id)\
+        .eq("label", label)\
+        .execute()
+    
+    return {
+        "status": "OK",
+        "message": "Enrollment deleted",
+        "enrollment_id": enrollment_id,
+        "label": label
+    }
+
+class RenameSpeakerPayload(BaseModel):
+    label: str
+# =========================
+# RENAME SPEAKER LABEL
+# =========================
+@app.patch("/speakers/{speaker_id}/label")
+async def rename_speaker_label(
+    speaker_id: str,
+    payload: RenameSpeakerPayload,
+    request: Request
+):
+    user_id = get_user_id_from_request(request)
+    sb = get_supabase()
+
+    new_label = payload.label.strip()
+
+    if not new_label:
+        raise HTTPException(status_code=400, detail="Label cannot be empty")
+
+    # 1️⃣ Cek speaker milik user
+    speaker_check = (
+        sb.table("speaker_profiles")
+        .select("id, label")
+        .eq("id", speaker_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not speaker_check.data:
+        raise HTTPException(status_code=404, detail="Speaker not found")
+
+    old_label = speaker_check.data[0]["label"]
+
+    # 2️⃣ Cek duplicate label
+    duplicate_check = (
+        sb.table("speaker_profiles")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("label", new_label)
+        .execute()
+    )
+
+    if duplicate_check.data:
+        raise HTTPException(
+            status_code=400,
+            detail="Label already exists for this user."
+        )
+
+    # 3️⃣ Update speaker_profiles
+    sb.table("speaker_profiles")\
+        .update({"label": new_label})\
+        .eq("id", speaker_id)\
+        .execute()
+
+    # 4️⃣ Update behavior_profiles
+    sb.table("behavior_profiles")\
+        .update({"label": new_label})\
+        .eq("user_id", user_id)\
+        .eq("label", old_label)\
+        .execute()
+
+    return {
+        "status": "OK",
+        "message": "Label renamed successfully",
+        "speaker_id": speaker_id,
+        "old_label": old_label,
+        "new_label": new_label
+    }

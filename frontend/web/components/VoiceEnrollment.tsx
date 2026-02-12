@@ -99,7 +99,7 @@ export default function VoiceEnrollment({
             />
             <button
                 onClick={handleEnroll}
-                className="w-full px-3 py-3 rounded-lg bg-black text-white font-semibold text-sm hover:bg-gray-800 active:scale-[0.98] transition-all">
+                className="w-full px-3 py-3 rounded-lg bg-black text-white font-semibold text-sm hover:bg-gray-800 active:scale-[0.98] transition-all cursor-pointer">
                 🎤 Enroll Voice
             </button>
         </div>

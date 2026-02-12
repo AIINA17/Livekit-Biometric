@@ -39,7 +39,7 @@ export function useLiveKit({
 
     const joinRoom = useCallback(async () => {
         onRoomStatus("⏳ Connecting…");
-
+        
         const res = await fetch(`${SERVER_URL}/join-token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -106,6 +106,10 @@ export function useLiveKit({
 
     const startVADRecording = async () => {
         if (recorderRef.current) return;
+        if (!token) {
+            onVerifyStatus("❌ Login dulu sebelum verifikasi");
+            return;
+        }
 
         setUiState("LISTENING");
         onVerifyStatus("🎧 Silakan bicara...");

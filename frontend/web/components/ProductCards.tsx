@@ -22,7 +22,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
     <div className="w-full">
       {/* Header */}
       <div className="mb-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <div className="flex items-center gap-2 text-sm font-medium text-white">
           🛍️ <span>{products.length} Produk Ditemukan</span>
         </div>
       </div>
@@ -32,10 +32,10 @@ export default function ProductCards({ products }: ProductCardsProps) {
         {products.map((product) => (
           <div
             key={product.id}
-            className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
+            className="bg-black-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
           >
             {/* Image */}
-            <div className="relative aspect-square bg-gray-50 overflow-hidden">
+            <div className="relative aspect-square bg-black-50 overflow-hidden">
               {product.image_url ? (
                 <img
                   src={product.image_url}
@@ -44,7 +44,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   sizes="(max-width: 768px) 50vw, 25vw"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                <div className="w-full h-full flex items-center justify-center">
                   <svg 
                     className="w-16 h-16" 
                     fill="none" 
@@ -74,13 +74,13 @@ export default function ProductCards({ products }: ProductCardsProps) {
               )}
 
               {/* Product Name */}
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight text-white">
                 {product.name}
               </h3>
 
               {/* Price */}
               <div className="flex items-baseline gap-1.5 mb-2">
-                <span className="text-base font-bold text-black">
+                <span className="text-base font-bold text-white">
                   {formatPrice(product.price)}
                 </span>
               </div>

@@ -98,7 +98,7 @@ class BiometricService:
             f"🎯 VERIFY | label='{best_label}' "
             f"| score={best_score:.3f} "
             f"| spoof={spoof_prob:.3f} "
-            f"| behavior={behavior_score if behavior_score else 'N/A'}"
+            f"| decision={decision.value}"
         )
 
 

@@ -31,12 +31,11 @@ export default function VoiceButton({
         </>
       )}
 
-      {/* Main Button */}
-      {/* Main Button */}
+      {/* Mic Button */}
       <button
         onClick={onClick}
         className={`relative w-20 h-20 rounded-full flex items-center justify-center
-                    transition-all duration-200 active:scale-95
+                    transition-all duration-200 active:scale-95 cursor-pointer
                     ${isSpeaking 
                       ? 'bg-[var(--text-secondary)] border-4 border-[var(--accent-primary)]' 
                       : 'bg-[var(--text-secondary)] border-3 border-[var(--accent-primary)] hover:scale-105 hover:shadow-lg'
@@ -44,7 +43,7 @@ export default function VoiceButton({
       >
         {/* Mic Icon */}
         <Image
-          src="/icons/Mic_Utamaa.png"
+          src="/icons/Microphone.png"
           alt="Mic"
           width={35}
           height={35}

@@ -93,26 +93,13 @@ export default function ChatArea({
 
       {/* Bottom Section - Voice Button & Controls */}
       <div className="p-6 flex flex-col items-center gap-4">
-        {/* Sound Wave Animation */}
-        {isSpeaking && <SoundWave />}
-
-        {/* Voice Button */}
-        <VoiceButton
-          isConnected={isConnected}
-          isSpeaking={isSpeaking}
-          onClick={() => {
-            if (!isConnected) {
-              // Will be handled by LiveKitControls
-            } else {
-              setIsSpeaking(!isSpeaking);
-            }
-          }}
-        />
 
         {/* LiveKit Controls */}
         <LiveKitControls
           token={token}
+          isSpeaking={isSpeaking}
           isConnected={isConnected}
+          setIsSpeaking={setIsSpeaking}
           setIsConnected={setIsConnected}
           setRoomStatus={setRoomStatus}
           setVerifyStatus={setVerifyStatus}
@@ -141,7 +128,7 @@ function WelcomeScreen({ isSpeaking }: { isSpeaking: boolean }) {
 
       <div className="relative w-48 h-48 mb-8">
         <Image
-          src="/icons/Happy_Warnaa.png"
+          src="/icons/Happy_Warna.png"
           alt="Happy Mascot"
           fill
           className="object-contain"

@@ -1,3 +1,4 @@
+//page.tsx
 // app/page.tsx
 'use client';
 
@@ -28,6 +29,11 @@ export default function Home() {
   const [verifyStatus, setVerifyStatus] = useState("Idle");
   const [roomStatus, setRoomStatus] = useState("Not connected");
   const [score, setScore] = useState<number | null>(null);
+
+  // ✅ SESSION/CONVERSATION STATE - ADDED
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  
+  const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
   // Check session on mount
   useEffect(() => {
@@ -66,6 +72,66 @@ export default function Home() {
   // Product handler
   const handleProductCards = (newProducts: Product[]) => {
     setProducts(newProducts);
+  };
+
+  // ✅ SESSION HANDLERS - ADDED
+  const handleSelectSession = async (sessionId: string) => {
+    if (!session?.access_token || !SERVER_URL) return;
+
+    console.log('📂 Loading session:', sessionId);
+    setCurrentSessionId(sessionId);
+
+    try {
+      const res = await fetch(`${SERVER_URL}/logs/sessions/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error('Failed to load session logs:', res.status);
+        return;
+      }
+
+      const data = await res.json();
+      console.log('📥 Loaded logs:', data.logs?.length || 0);
+
+      // Parse logs into messages and products
+      const newMessages: Message[] = [];
+      let newProducts: Product[] = [];
+
+      data.logs?.forEach((log: any) => {
+        // Check if product_cards column has data
+        if (log.product_cards) {
+          try {
+            const products = JSON.parse(log.product_cards);
+            newProducts = products; // Use latest products
+            console.log('🛍️ Loaded products from DB:', products.length);
+          } catch (e) {
+            console.error('Failed to parse product_cards:', e);
+          }
+        } else {
+          // Regular text message
+          newMessages.push({
+            role: log.role,
+            text: log.content,
+            timestamp: new Date(log.created_at),
+          });
+        }
+      });
+
+      setMessages(newMessages);
+      setProducts(newProducts);
+
+    } catch (error) {
+      console.error('Error loading session:', error);
+    }
+  };
+
+  const handleNewChat = () => {
+    setCurrentSessionId(null);
+    setMessages([]);
+    setProducts([]);
   };
 
   // Auth handlers
@@ -111,6 +177,7 @@ export default function Home() {
     setMessages([]);
     setProducts([]);
     setIsConnected(false);
+    setCurrentSessionId(null); // ✅ Clear session on logout
   };
 
   // Loading screen
@@ -144,6 +211,9 @@ export default function Home() {
         onLogout={handleLogout}
         token={session?.access_token || null}
         setVerifyStatus={setVerifyStatus}
+        currentSessionId={currentSessionId}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
       />
 
       {/* Main Chat Area */}

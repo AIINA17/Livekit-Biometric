@@ -4,6 +4,8 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import VoiceEnrollment from "./VoiceEnrollment";
+import { IoLogOut, IoMenu, IoEllipsisVertical } from "react-icons/io5";
+import { MdModeEdit, MdDelete } from "react-icons/md";
 
 interface ConversationSession {
     id: string;
@@ -32,11 +34,27 @@ export default function Sidebar({
     onSelectSession,
     onNewChat,
 }: SidebarProps) {
-    const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showEnrollmentList, setShowEnrollmentList] = useState(false); // Default FALSE
     const [sessions, setSessions] = useState<ConversationSession[]>([]);
     const [loading, setLoading] = useState(true);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setShowUserMenu(false);
+            }
+        };
+
+        if (showUserMenu) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showUserMenu]);
 
     // Fetch sessions dari backend
     useEffect(() => {
@@ -119,7 +137,6 @@ export default function Sidebar({
                 setSessions((prev) =>
                     prev.filter((session) => session.id !== sessionId),
                 );
-                // If deleted session is current, clear it
                 if (currentSessionId === sessionId) {
                     onNewChat?.();
                 }
@@ -127,6 +144,12 @@ export default function Sidebar({
         } catch (error) {
             console.error("Error deleting session:", error);
         }
+    };
+
+    // Toggle Enrollment List - klik untuk show, klik lagi untuk hide
+    const handleEnrollmentListClick = () => {
+        setShowUserMenu(false);
+        setShowEnrollmentList(prev => !prev); // TOGGLE!
     };
 
     return (
@@ -152,6 +175,8 @@ export default function Sidebar({
                 <VoiceEnrollment
                     token={token}
                     setVerifyStatus={setVerifyStatus}
+                    showEnrollmentList={showEnrollmentList}
+                    setShowEnrollmentList={setShowEnrollmentList}
                 />
             </div>
 
@@ -190,30 +215,53 @@ export default function Sidebar({
 
             {/* User Section - Bottom */}
             {isLoggedIn && (
-                <div className="relative p-4 border-t border-[var(--border-color)]/20">
-                    {/* Logout Menu Popup */}
-                    {showLogoutMenu && (
-                        <div
-                            className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--bg-tertiary)] 
-                            rounded-lg shadow-lg overflow-hidden animate-fadeIn">
+                <div className="relative p-4 border-t border-[var(--border-color)]/20" ref={menuRef}>
+                    {/* User Menu Popup */}
+                    {showUserMenu && (
+                        <div className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--bg-tertiary)] 
+                                        rounded-lg shadow-lg overflow-hidden animate-fadeIn
+                                        border border-[var(--border-color)]/20">
+                            {/* Enrollment List - TOGGLE */}
+                            <button
+                                onClick={handleEnrollmentListClick}
+                                className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-secondary)]
+                                           hover:bg-[var(--bg-card)] transition-colors"
+                            >
+                                <Image
+                                    src="/icons/EnrollmentList.png"
+                                    alt="Enrollment List"
+                                    width={20}
+                                    height={20}
+                                />
+                                <span className="text-sm">Enrollment List</span>
+                            </button>
+                            
+                            {/* Log out */}
                             <button
                                 onClick={() => {
                                     onLogout();
-                                    setShowLogoutMenu(false);
+                                    setShowUserMenu(false);
                                 }}
-                                className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-primary)]
-                           hover:bg-[var(--bg-card)] transition-colors">
-                                <LogoutIcon />
-                                <span className="text-base">Log out</span>
+                                className="w-full px-4 py-4 flex items-center gap-3 text-[var(--text-secondary)]
+                                           hover:bg-[var(--bg-card)] transition-colors"
+                            >
+                                <Image
+                                    src="/icons/Logout.png"
+                                    alt="Enrollment List"
+                                    width={18}
+                                    height={18}
+                                />
+                                <span className="text-sm">Log out</span>
                             </button>
                         </div>
                     )}
 
-                    {/* User Info */}
+                    {/* User Info Button */}
                     <button
-                        onClick={() => setShowLogoutMenu(!showLogoutMenu)}
+                        onClick={() => setShowUserMenu(!showUserMenu)}
                         className="w-full flex items-center gap-3 p-2 rounded-lg 
-                       hover:bg-[var(--bg-tertiary)] transition-colors">
+                                   hover:bg-[var(--bg-tertiary)] transition-colors"
+                    >
                         <div className="w-10 h-10 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center">
                             <span className="text-lg">👤</span>
                         </div>
@@ -253,13 +301,9 @@ function SessionItem({
     const menuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (
-                menuRef.current &&
-                !menuRef.current.contains(event.target as Node)
-            ) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setShowMenu(false);
             }
         };
@@ -267,11 +311,9 @@ function SessionItem({
         if (showMenu) {
             document.addEventListener("mousedown", handleClickOutside);
         }
-        return () =>
-            document.removeEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showMenu]);
 
-    // Focus input when renaming
     useEffect(() => {
         if (isRenaming && inputRef.current) {
             inputRef.current.focus();
@@ -312,58 +354,58 @@ function SessionItem({
                         }
                     }}
                     className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-tertiary)] 
-                     text-[var(--text-primary)] text-sm outline-none
-                     border border-[var(--accent-primary)]"
+                               text-[var(--text-primary)] text-sm outline-none
+                               border border-[var(--accent-primary)]"
                 />
             ) : (
                 <div
                     onClick={onSelect}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm cursor-pointer
-                     transition-colors flex items-center justify-between group
-                     ${
-                         isActive
-                             ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
-                             : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-                     }`}>
-                    <span className="truncate flex-1 pr-2">
-                        {session.label}
-                    </span>
+                               transition-colors flex items-center justify-between group
+                               ${isActive
+                                   ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
+                                   : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                               }`}
+                >
+                    <span className="truncate flex-1 pr-2">{session.label}</span>
 
-                    {/* Three Dots Button */}
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             setShowMenu(!showMenu);
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--bg-card)]
-                       transition-opacity">
+                                   transition-opacity"
+                    >
                         <ThreeDotsIcon />
                     </button>
                 </div>
             )}
 
-            {/* Dropdown Menu */}
             {showMenu && (
                 <div
                     ref={menuRef}
                     className="absolute right-0 top-full mt-1 w-40 bg-[var(--bg-tertiary)] 
-                     rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                     border border-[var(--border-color)]/20">
+                               rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
+                               border border-[var(--border-color)]/20"
+                >
                     <button
                         onClick={() => {
                             setIsRenaming(true);
                             setShowMenu(false);
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
-                       hover:bg-[var(--bg-card)] transition-colors">
+                                   hover:bg-[var(--bg-card)] transition-colors"
+                    >
                         <RenameIcon />
                         <span>Rename</span>
                     </button>
                     <button
                         onClick={handleDeleteClick}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-red-400
-                       hover:bg-[var(--bg-card)] transition-colors">
-                        <DeleteIcon />
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-amber-400
+                                   hover:bg-[var(--bg-card)] transition-colors"
+                    >
+                        <MdDelete />
                         <span>Delete</span>
                     </button>
                 </div>
@@ -376,17 +418,20 @@ function SessionItem({
    ICONS
    ============================================ */
 
+function EnrollmentIcon() {
+    return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+    );
+}
+
 function LogoutIcon() {
     return (
-        <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16,17 21,12 16,7" />
             <line x1="21" y1="12" x2="9" y2="12" />
@@ -396,15 +441,7 @@ function LogoutIcon() {
 
 function MenuIcon() {
     return (
-        <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="7,8 12,3 17,8" />
             <polyline points="7,16 12,21 17,16" />
         </svg>
@@ -423,36 +460,9 @@ function ThreeDotsIcon() {
 
 function RenameIcon() {
     return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-    );
-}
-
-function DeleteIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <polyline points="3,6 5,6 21,6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            <line x1="10" y1="11" x2="10" y2="17" />
-            <line x1="14" y1="11" x2="14" y2="17" />
         </svg>
     );
 }

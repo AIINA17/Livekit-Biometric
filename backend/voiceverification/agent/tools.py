@@ -100,30 +100,62 @@ def require_voice_verification(action_name: str, params=None) -> str | None:
         f"Coba ngobrol sebentar ya."
     )
 
-
+@function_tool
 async def send_product_cards(products: list):
-    """Send product cards to frontend via data channel with 2s delay for better timing"""
-    if not auth_state["room_ref"]:
-        logging.warning("⚠️ Room reference not set, cannot send product cards")
+    """Send product cards to frontend AND save to database"""
+    import json
+    import logging
+    from db.conversation_logs import insert_conversation_log
+    from agent.state import agent_state
+    from db.connection import get_supabase
+    
+    session_id = agent_state.get("conversation_session_id")
+    
+    if not session_id:
+        logging.error("❌ PRODUCT_CARDS NOT SAVED: conversation_session_id is None")
         return
     
+    product_cards_json = json.dumps(products[:8], ensure_ascii=False)
+    
+    # ================================
+    # 1️⃣ SAVE TO DATABASE
+    # ================================
     try:
-        # ⏰ DELAY 2 DETIK BIAR AGENT NGOMONG DULU
-        await asyncio.sleep(2)
+        sb = get_supabase()
         
-        payload = json.dumps({
-            "type": "PRODUCT_CARDS",
-            "products": products[:8]  # Limit to 8 products
-        }).encode("utf-8")
+        sb.table("conversation_logs").insert({
+            "session_id": str(session_id),
+            "role": "assistant",
+            "content": f"🛍️ Menampilkan {len(products[:8])} produk",
+            "product_cards": product_cards_json  # ← Save to product_cards column (JSONB)
+        }).execute()
         
-        await auth_state["room_ref"].local_participant.publish_data(
-            payload,
-            reliable=True,
-            topic="PRODUCT_DATA"
-        )
-        logging.info(f"✅ Sent {len(products[:8])} product cards to frontend (delayed 2s)")
+        logging.info(f"✅ PRODUCT_CARDS SAVED TO DB (session={session_id}, count={len(products[:8])})")
     except Exception as e:
-        logging.error(f"❌ Error sending product cards: {e}")
+        logging.error(f"❌ Failed to save product cards to DB: {e}")
+    
+    # ================================
+    # 2️⃣ SEND TO FRONTEND (Real-time)
+    # ================================
+    room = auth_state.get("room_ref")
+    if room:
+        try:
+            # ⏰ DELAY 2s
+            await asyncio.sleep(2)
+            
+            payload = json.dumps({
+                "type": "PRODUCT_CARDS",
+                "products": products[:8]
+            }).encode("utf-8")
+            
+            await room.local_participant.publish_data(
+                payload,
+                reliable=True,
+                topic="PRODUCT_DATA"
+            )
+            logging.info(f"📤 PRODUCT_CARDS SENT REALTIME")
+        except Exception as e:
+            logging.error(f"❌ Failed realtime PRODUCT_CARDS: {e}")
 
 # ==================== GENERAL TOOLS ====================
 

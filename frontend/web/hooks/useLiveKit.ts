@@ -3,9 +3,9 @@
 import { useRef, useCallback, useState } from "react";
 import { Room, RoomEvent, Track, createLocalAudioTrack } from "livekit-client";
 import { VerificationResult, Product } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 type UiState = "IDLE" | "LISTENING" | "RECORDING" | "VERIFYING" | "CHATTING";
-import { supabase } from "@/lib/supabase";
 
 interface UseLiveKitProps {
     token: string | null;
@@ -25,6 +25,7 @@ export function useLiveKit({
     onProductCards,
 }: UseLiveKitProps) {
     const roomRef = useRef<Room | null>(null);
+    const isJoiningRef = useRef(false);
 
     const recorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
@@ -38,69 +39,108 @@ export function useLiveKit({
     /* ================= JOIN ROOM ================= */
 
     const joinRoom = useCallback(async () => {
-        onRoomStatus("⏳ Connecting…");
-        
-        const res = await fetch(`${SERVER_URL}/join-token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ room: "mainroom" }),
-        });
+        if (isJoiningRef.current) return; // 🔥 StrictMode safe
+        isJoiningRef.current = true;
 
-        const { token: lkToken } = await res.json();
+        try {
+            onRoomStatus("⏳ Connecting…");
 
-        const room = new Room({ adaptiveStream: true, dynacast: true });
-        roomRef.current = room;
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
 
-        room.on(RoomEvent.Connected, () => {
-            onRoomStatus("✅ Connected");
-            setUiState("CHATTING");
-        });
+            const accessToken = session?.access_token;
 
-        room.on(RoomEvent.DataReceived, (payload, _, __, topic) => {
-            handleAgentData(payload, topic);
-        });
-
-        room.on(RoomEvent.TrackSubscribed, (track) => {
-            if (track.kind === Track.Kind.Audio) {
-                const el = track.attach();
-                document.body.appendChild(el);
-                el.play().catch(() => {});
+            if (!accessToken) {
+                onRoomStatus("❌ Belum login");
+                isJoiningRef.current = false;
+                return;
             }
-        });
 
-        await room.connect(LIVEKIT_URL, lkToken);
+            const res = await fetch(`${SERVER_URL}/join-token`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
 
-        const micTrack = await createLocalAudioTrack();
-        await room.localParticipant.publishTrack(micTrack);
-    }, []);
+            if (!res.ok) {
+                console.error(await res.text());
+                onRoomStatus("❌ Gagal ambil token");
+                isJoiningRef.current = false;
+                return;
+            }
+
+            const { token: lkToken } = await res.json();
+
+            const room = new Room({ adaptiveStream: true, dynacast: true });
+            roomRef.current = room;
+
+            room.on(RoomEvent.Connected, () => {
+                onRoomStatus("✅ Connected");
+                setUiState("CHATTING");
+            });
+
+            room.on(RoomEvent.Disconnected, () => {
+                isJoiningRef.current = false;
+                onRoomStatus("🔌 Disconnected");
+                setUiState("IDLE");
+            });
+
+            room.on(RoomEvent.DataReceived, (payload, _, __, topic) => {
+                handleAgentData(payload, topic);
+            });
+
+            room.on(RoomEvent.TrackSubscribed, (track) => {
+                if (track.kind === Track.Kind.Audio) {
+                    const el = track.attach();
+                    document.body.appendChild(el);
+                    el.play().catch(() => {});
+                }
+            });
+
+            await room.connect(LIVEKIT_URL, lkToken);
+
+            const micTrack = await createLocalAudioTrack();
+            await room.localParticipant.publishTrack(micTrack);
+        } catch (err) {
+            console.error("Join error:", err);
+            isJoiningRef.current = false;
+            onRoomStatus("❌ Connection error");
+        }
+    }, [SERVER_URL, LIVEKIT_URL, onRoomStatus]);
 
     /* ================= AGENT DATA ================= */
 
-    const handleAgentData = (payload: Uint8Array, topic?: string) => {
-        const text = new TextDecoder().decode(payload).trim();
-        if (!text.startsWith("{")) return;
+    const handleAgentData = useCallback(
+        (payload: Uint8Array, topic?: string) => {
+            const text = new TextDecoder().decode(payload).trim();
+            if (!text.startsWith("{")) return;
 
-        const msg = JSON.parse(text);
+            const msg = JSON.parse(text);
 
-        if (msg.type === "VOICE_CMD" && msg.action === "START_RECORD") {
-            startVADRecording();
-            return;
-        }
+            if (msg.type === "VOICE_CMD" && msg.action === "START_RECORD") {
+                startVADRecording();
+                return;
+            }
 
-        if (msg.type === "PRODUCT_CARDS") {
-            onProductCards?.(msg.products);
-            return;
-        }
+            if (msg.type === "PRODUCT_CARDS") {
+                onProductCards?.(msg.products);
+                return;
+            }
 
-        if (msg.type === "AGENT_MESSAGE") {
-            onMessage("assistant", msg.text);
-            return;
-        }
+            if (msg.type === "AGENT_MESSAGE") {
+                onMessage("assistant", msg.text);
+                return;
+            }
 
-        if (msg.type === "USER_MESSAGE") {
-            onMessage("user", msg.text);
-        }
-    };
+            if (msg.type === "USER_MESSAGE") {
+                onMessage("user", msg.text);
+            }
+        },
+        [onMessage, onProductCards],
+    );
 
     /* ================= VAD RECORD (VERIF ONLY) ================= */
 

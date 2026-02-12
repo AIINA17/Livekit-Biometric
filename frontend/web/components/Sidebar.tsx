@@ -1,9 +1,10 @@
-// components/Sidebar.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import VoiceEnrollment from "./VoiceEnrollment";
+import { IoLogOut, IoMenu, IoEllipsisVertical } from "react-icons/io5";
+import { MdModeEdit, MdDelete } from "react-icons/md";
 
 interface ConversationSession {
     id: string;
@@ -34,38 +35,42 @@ export default function Sidebar({
 }: SidebarProps) {
     const [showLogoutMenu, setShowLogoutMenu] = useState(false);
     const [sessions, setSessions] = useState<ConversationSession[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
-    // Fetch sessions dari backend
     useEffect(() => {
-        if (isLoggedIn && token) {
-            fetchSessions();
-        }
-    }, [isLoggedIn, token]);
+        if (!isLoggedIn || !token) return;
 
-    const fetchSessions = async () => {
-        if (!token) return;
+        let isMounted = true;
 
-        setLoading(true);
-        try {
-            const res = await fetch(`${SERVER_URL}/logs/sessions`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+        const loadSessions = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`${SERVER_URL}/logs/sessions`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
-            const data = await res.json();
+                const data = await res.json();
 
-            if (data.status === "OK") {
-                setSessions(data.sessions || []);
+                if (isMounted && data.status === "OK") {
+                    setSessions(data.sessions || []);
+                }
+            } catch (error) {
+                console.error("Error fetching sessions:", error);
+            } finally {
+                if (isMounted) setLoading(false);
             }
-        } catch (error) {
-            console.error("Error fetching sessions:", error);
-        }
-        setLoading(false);
-    };
+        };
+
+        loadSessions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isLoggedIn, token, SERVER_URL]);
 
     // Rename session
     const handleRename = async (sessionId: string, newLabel: string) => {
@@ -203,7 +208,7 @@ export default function Sidebar({
                                 }}
                                 className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-primary)]
                            hover:bg-[var(--bg-card)] transition-colors">
-                                <LogoutIcon />
+                                <IoLogOut className="w-5 h-5" />
                                 <span className="text-base">Log out</span>
                             </button>
                         </div>
@@ -220,7 +225,7 @@ export default function Sidebar({
                         <span className="flex-1 text-left text-[var(--text-primary)] text-sm truncate">
                             {userEmail}
                         </span>
-                        <MenuIcon />
+                        <IoMenu className="w-5 h-5" />
                     </button>
                 </div>
             )}
@@ -337,7 +342,7 @@ function SessionItem({
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--bg-card)]
                        transition-opacity">
-                        <ThreeDotsIcon />
+                        <IoEllipsisVertical className="w-5 h-5" />
                     </button>
                 </div>
             )}
@@ -356,103 +361,18 @@ function SessionItem({
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
                        hover:bg-[var(--bg-card)] transition-colors">
-                        <RenameIcon />
+                        <MdModeEdit className="w-5 h-5" />
                         <span>Rename</span>
                     </button>
                     <button
                         onClick={handleDeleteClick}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-red-400
                        hover:bg-[var(--bg-card)] transition-colors">
-                        <DeleteIcon />
+                        <MdDelete className="w-5 h-5" />
                         <span>Delete</span>
                     </button>
                 </div>
             )}
         </div>
-    );
-}
-
-/* ============================================
-   ICONS
-   ============================================ */
-
-function LogoutIcon() {
-    return (
-        <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16,17 21,12 16,7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-    );
-}
-
-function MenuIcon() {
-    return (
-        <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <polyline points="7,8 12,3 17,8" />
-            <polyline points="7,16 12,21 17,16" />
-        </svg>
-    );
-}
-
-function ThreeDotsIcon() {
-    return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="19" r="2" />
-        </svg>
-    );
-}
-
-function RenameIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-    );
-}
-
-function DeleteIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <polyline points="3,6 5,6 21,6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            <line x1="10" y1="11" x2="10" y2="17" />
-            <line x1="14" y1="11" x2="14" y2="17" />
-        </svg>
     );
 }

@@ -15,3 +15,5 @@ backend/.env
 /audio_cache/
 
 /pretrained_models/
+
+backend/voiceverification/audio_cache/

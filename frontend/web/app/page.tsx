@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import Sidebar from '@/components/Sidebar';
 import ChatArea from '@/components/ChatArea';
 import AuthCard from '@/components/AuthCard';
-import { Message, Product, RecentChat } from '@/types';
+import { Message, Product } from '@/types';
 
 export default function Home() {
   // Auth state
@@ -28,22 +28,6 @@ export default function Home() {
   const [verifyStatus, setVerifyStatus] = useState("Idle");
   const [roomStatus, setRoomStatus] = useState("Not connected");
   const [score, setScore] = useState<number | null>(null);
-
-  // Recent chats (dummy data)
-  const [recentChats] = useState<RecentChat[]>([
-    { id: '1', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '2', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '3', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '4', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '5', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '6', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '7', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '8', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '9', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '10', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '11', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-    { id: '12', title: 'lorem ipsum sit amet ...', preview: '', timestamp: new Date() },
-  ]);
 
   // Check session on mount
   useEffect(() => {
@@ -157,7 +141,6 @@ export default function Home() {
       <Sidebar
         isLoggedIn={isLoggedIn}
         userEmail={session?.user?.email || ''}
-        recentChats={recentChats}
         onLogout={handleLogout}
         token={session?.access_token || null}
         setVerifyStatus={setVerifyStatus}
@@ -166,18 +149,18 @@ export default function Home() {
       {/* Main Chat Area */}
       <ChatArea
         messages={messages}
-        setMessages={setMessages}
-        isConnected={isConnected}
-        setIsConnected={setIsConnected}
-        isTyping={isTyping}
-        setIsTyping={setIsTyping}
         products={products}
         isLoggedIn={isLoggedIn}
-        isSpeaking={isSpeaking}
-        setIsSpeaking={setIsSpeaking}
-        speakingRole={speakingRole}
-        setSpeakingRole={setSpeakingRole}
         token={session?.access_token || null}
+        isConnected={isConnected}
+        isTyping={isTyping}
+        isSpeaking={isSpeaking}
+        speakingRole={speakingRole}
+        setMessages={setMessages}
+        setIsConnected={setIsConnected}
+        setIsTyping={setIsTyping}
+        setIsSpeaking={setIsSpeaking}
+        setSpeakingRole={setSpeakingRole}
         addMessage={addMessage}
         onProductCards={handleProductCards}
         setVerifyStatus={setVerifyStatus}

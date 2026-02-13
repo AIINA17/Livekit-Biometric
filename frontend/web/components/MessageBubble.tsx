@@ -28,9 +28,9 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
     >
       {/* Avatar - Only for Agent */}
       {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8">
+        <div className="shrink-0 w-8 h-8">
           <Image
-            src="/happy-icon.png"
+            src="/icons/Happy_Polos.png"
             alt="Happy"
             width={32}
             height={32}
@@ -52,17 +52,17 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
               className="opacity-70"
             />
           )}
-          <span className="text-sm text-[var(--text-secondary)]">
+          <span className="text-sm text-(--text-secondary)">
             {isUser ? userName : 'Happy'}
           </span>
         </div>
 
         {/* Message Bubble */}
         <div
-          className={`px-4 py-3 rounded-2xl max-w-full break-words ${
+          className={`px-4 py-3 rounded-2xl max-w-full wrap-break-words ${
             isUser
-              ? 'bg-[var(--bubble-user)] text-[var(--text-primary)] rounded-br-md'
-              : 'bg-[var(--bubble-agent)] text-[var(--text-primary)] rounded-bl-md'
+              ? 'bg-(--bubble-user) text-(--text-primary) rounded-br-md'
+              : 'bg-(--bubble-agent) text-(--text-primary) rounded-bl-md'
           }`}
         >
           <p className="text-base leading-relaxed">{text}</p>
@@ -70,7 +70,7 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
 
         {/* Timestamp - Optional */}
         {/* 
-        <span className="text-xs text-[var(--text-muted)] mt-1">
+        <span className="text-xs text-(--text-muted) mt-1">
           {formatTime(timestamp)}
         </span>
         */}
@@ -85,12 +85,12 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
    
    1. User Bubble:
       - Background: bg-[var(--bubble-user)] (#30302E)
-      - Text: text-[var(--text-primary)] (#FFFFFF)
+      - Text: text-(--text-primary) (#FFFFFF)
       - Border radius: rounded-2xl dengan rounded-br-md
    
    2. Agent Bubble:
       - Background: bg-[var(--bubble-agent)] (#252624)
-      - Text: text-[var(--text-primary)] (#FFFFFF)
+      - Text: text-(--text-primary) (#FFFFFF)
       - Border radius: rounded-2xl dengan rounded-bl-md
    
    3. Ganti warna bubble di globals.css:
@@ -102,7 +102,7 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
       - Size: 32x32 px
    
    5. Name Label:
-      - Color: text-[var(--text-secondary)] (#C2C0B6)
+      - Color: text-(--text-secondary) (#C2C0B6)
       - Size: text-sm
    
    6. Message Text:

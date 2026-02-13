@@ -161,7 +161,7 @@ export default function Sidebar({
     };
 
     return (
-        <aside className="w-[360px] h-screen bg-[var(--bg-secondary)] flex flex-col border-r border-[var(--border-color)]/20">
+        <aside className="w-90 h-screen bg-(--bg-secondary) flex flex-col border-r border-(--border-color)/20">
             {/* Logo Header */}
             <div className="p-6 pb-4">
                 <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function Sidebar({
                         height={40}
                         className="object-contain"
                     />
-                    <h1 className="font-space text-3xl font-bold text-[var(--text-primary)]">
+                    <h1 className="font-space text-3xl font-bold text-(--text-primary)">
                         Happy
                     </h1>
                 </div>
@@ -191,7 +191,7 @@ export default function Sidebar({
             {/* Recents Section */}
             <div className="flex-1 px-6 overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-medium text-[var(--text-secondary)]">
+                    <h2 className="text-sm font-medium text-(--text-secondary)">
                         Recents
                     </h2>
                 </div>
@@ -199,11 +199,11 @@ export default function Sidebar({
                 {/* Sessions List */}
                 <div className="flex-1 overflow-y-auto space-y-1 pr-2">
                     {loading ? (
-                        <div className="text-[var(--text-muted)] text-sm py-4">
+                        <div className="text-(--text-muted) text-sm py-4">
                             Loading...
                         </div>
                     ) : sessions.length === 0 ? (
-                        <div className="text-[var(--text-muted)] text-sm py-4">
+                        <div className="text-(--text-muted) text-sm py-4">
                             Belum ada chat
                         </div>
                     ) : (
@@ -224,19 +224,19 @@ export default function Sidebar({
             {/* User Section - Bottom */}
             {isLoggedIn && (
                 <div
-                    className="relative p-4 border-t border-[var(--border-color)]/20"
+                    className="relative p-4 border-t border-(--border-color)/20"
                     ref={menuRef}>
                     {/* User Menu Popup */}
                     {showUserMenu && (
                         <div
-                            className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--bg-tertiary)] 
+                            className="absolute bottom-full left-4 right-4 mb-2 bg-(--bg-tertiary) 
                                         rounded-lg shadow-lg overflow-hidden animate-fadeIn
-                                        border border-[var(--border-color)]/20">
+                                        border border-(--border-color)/20">
                             {/* Enrollment List - TOGGLE */}
                             <button
                                 onClick={handleEnrollmentListClick}
-                                className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors">
+                                className="w-full px-4 py-3 flex items-center gap-3 text-(--text-secondary)
+                                           hover:bg-(--bg-card) transition-colors">
                                 <Image
                                     src="/icons/EnrollmentList.png"
                                     alt="Enrollment List"
@@ -252,8 +252,8 @@ export default function Sidebar({
                                     onLogout();
                                     setShowUserMenu(false);
                                 }}
-                                className="w-full px-4 py-4 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors">
+                                className="w-full px-4 py-4 flex items-center gap-3 text-(--text-secondary)
+                                           hover:bg-(--bg-card) transition-colors">
                                 <Image
                                     src="/icons/Logout.png"
                                     alt="Enrollment List"
@@ -269,11 +269,11 @@ export default function Sidebar({
                     <button
                         onClick={() => setShowUserMenu(!showUserMenu)}
                         className="w-full flex items-center gap-3 p-2 rounded-lg 
-                                   hover:bg-[var(--bg-tertiary)] transition-colors">
-                        <div className="w-10 h-10 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center">
+                                   hover:bg-(--bg-tertiary) transition-colors">
+                        <div className="w-10 h-10 rounded-full bg-(--bg-tertiary) flex items-center justify-center">
                             <span className="text-lg">👤</span>
                         </div>
-                        <span className="flex-1 text-left text-[var(--text-primary)] text-sm truncate">
+                        <span className="flex-1 text-left text-(--text-primary) text-sm truncate">
                             {userEmail}
                         </span>
                         <IoMenu className="w-5 h-5" />
@@ -365,9 +365,9 @@ function SessionItem({
                             setIsRenaming(false);
                         }
                     }}
-                    className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-tertiary)] 
-                               text-[var(--text-primary)] text-sm outline-none
-                               border border-[var(--accent-primary)]"
+                    className="w-full px-3 py-2.5 rounded-lg bg-(--bg-tertiary) 
+                               text-(--text-primary) text-sm outline-none
+                               border border-(--accent-primary)"
                 />
             ) : (
                 <div
@@ -376,8 +376,8 @@ function SessionItem({
                                transition-colors flex items-center justify-between group
                                ${
                                    isActive
-                                       ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
-                                       : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                                       ? "bg-(--bg-tertiary) text-(--text-primary)"
+                                       : "text-(--text-primary) hover:bg-(--bg-tertiary)"
                                }`}>
                     <span className="truncate flex-1 pr-2">
                         {session.label}
@@ -388,7 +388,7 @@ function SessionItem({
                             e.stopPropagation();
                             setShowMenu(!showMenu);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--bg-card)]
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-(--bg-card)
                                    transition-opacity">
                         <ThreeDotsIcon />
                     </button>
@@ -398,23 +398,23 @@ function SessionItem({
             {showMenu && (
                 <div
                     ref={menuRef}
-                    className="absolute right-0 top-full mt-1 w-40 bg-[var(--bg-tertiary)] 
+                    className="absolute right-0 top-full mt-1 w-40 bg-(--bg-tertiary) 
                                rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                               border border-[var(--border-color)]/20">
+                               border border-(--border-color)/20">
                     <button
                         onClick={() => {
                             setIsRenaming(true);
                             setShowMenu(false);
                         }}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
-                                   hover:bg-[var(--bg-card)] transition-colors">
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-(--text-primary)
+                                   hover:bg-(--bg-card) transition-colors">
                         <RenameIcon />
                         <span>Rename</span>
                     </button>
                     <button
                         onClick={handleDeleteClick}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-amber-400
-                                   hover:bg-[var(--bg-card)] transition-colors">
+                                   hover:bg-(--bg-card) transition-colors">
                         <MdDelete />
                         <span>Delete</span>
                     </button>

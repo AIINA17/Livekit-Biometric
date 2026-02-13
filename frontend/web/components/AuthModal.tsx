@@ -45,7 +45,7 @@ export default function AuthModal({
     >
       {/* Modal Card */}
       <div 
-        className="w-full max-w-md mx-4 p-8 rounded-2xl bg-[var(--bg-card)] 
+        className="w-full max-w-md mx-4 p-8 rounded-2xl bg-(--bg-card) 
                    shadow-2xl animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
@@ -53,7 +53,7 @@ export default function AuthModal({
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email Field */}
           <div className="space-y-2">
-            <label className="block text-sm text-[var(--text-secondary)]">
+            <label className="block text-sm text-(--text-secondary)">
               Email
             </label>
             <input
@@ -62,17 +62,17 @@ export default function AuthModal({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="w-full px-4 py-4 rounded-xl bg-[var(--input-bg)] 
-                         text-[var(--text-primary)] text-base
-                         placeholder:text-[var(--text-white-50)]
+              className="w-full px-4 py-4 rounded-xl bg-(--input-bg) 
+                         text-(--text-primary) text-base
+                         placeholder:text-(--text-white-50)
                          border-none outline-none
-                         focus:ring-2 focus:ring-[var(--accent-primary)]/50"
+                         focus:ring-2 focus:ring-(--accent-primary)/50"
             />
           </div>
 
           {/* Password Field */}
           <div className="space-y-2">
-            <label className="block text-sm text-[var(--text-secondary)]">
+            <label className="block text-sm text-(--text-secondary)">
               Password
             </label>
             <div className="relative">
@@ -83,18 +83,18 @@ export default function AuthModal({
                 placeholder="••••••••"
                 required
                 minLength={6}
-                className="w-full px-4 py-4 pr-12 rounded-xl bg-[var(--input-bg)] 
-                           text-[var(--text-primary)] text-base
-                           placeholder:text-[var(--text-white-50)]
+                className="w-full px-4 py-4 pr-12 rounded-xl bg-(--input-bg) 
+                           text-(--text-primary) text-base
+                           placeholder:text-(--text-white-50)
                            border-none outline-none
-                           focus:ring-2 focus:ring-[var(--accent-primary)]/50"
+                           focus:ring-2 focus:ring-(--accent-primary)/50"
               />
               {/* Toggle Password Visibility */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 
-                           text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                           text-(--text-secondary) hover:text-(--text-primary)"
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
@@ -103,13 +103,13 @@ export default function AuthModal({
 
           {/* Switch Mode Link */}
           <div className="text-center text-sm">
-            <span className="text-[var(--text-secondary)]">
+            <span className="text-(--text-secondary)">
               {mode === 'login' ? "Don't have an account yet? " : "Already have an account? "}
             </span>
             <button
               type="button"
               onClick={onSwitchMode}
-              className="text-[var(--accent-link)] hover:underline font-medium"
+              className="text-(--accent-link) hover:underline font-medium"
             >
               {mode === 'login' ? 'Sign up' : 'Sign in'}
             </button>
@@ -119,7 +119,7 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full px-6 py-4 rounded-full bg-[var(--accent-primary)] 
+            className="w-full px-6 py-4 rounded-full bg-(--accent-primary) 
                        text-white font-semibold text-base
                        hover:brightness-110 active:scale-[0.98]
                        disabled:opacity-50 disabled:cursor-not-allowed
@@ -178,17 +178,17 @@ function EyeOffIcon() {
    ============================================
    
    1. Modal Background:
-      - Sekarang: bg-[var(--bg-card)] (#30302E)
+      - Sekarang: bg-(--bg-card) (#30302E)
       - Ganti di globals.css: --bg-card: #30302E;
    
    2. Input Background:
-      - Sekarang: bg-[var(--input-bg)] (#5C5C5C)
+      - Sekarang: bg-(--input-bg) (#5C5C5C)
    
    3. Button Color (Orange):
-      - Sekarang: bg-[var(--accent-primary)] (#D97757)
+      - Sekarang: bg-(--accent-primary) (#D97757)
    
    4. Link Color (Blue):
-      - Sekarang: text-[var(--accent-link)] (#4598C5)
+      - Sekarang: text-(--accent-link) (#4598C5)
       - Ganti di globals.css: --accent-link: #4598C5;
    
    5. Backdrop Blur:

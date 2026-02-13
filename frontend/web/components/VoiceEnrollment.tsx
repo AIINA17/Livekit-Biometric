@@ -268,7 +268,7 @@ export default function VoiceEnrollment({
     return (
         <div className="space-y-3">
             {/* Label */}
-            <label className="block text-sm font-medium text-[var(--text-secondary)]">
+            <label className="block text-sm font-medium text-(--text-secondary)">
                 Voice Enrollment
             </label>
 
@@ -279,11 +279,11 @@ export default function VoiceEnrollment({
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Label / Nama Speaker"
                 disabled={isRecording}
-                className="w-full px-4 py-3 rounded-lg bg-[var(--input-bg)] 
+                className="w-full px-4 py-3 rounded-lg bg-(--input-bg) 
                    text-(--text-primary) text-sm
-                   placeholder:text-[var(--text-white-50)]
+                   placeholder:text-(--text-white-50)
                    border-none outline-none
-                   focus:ring-2 focus:ring-[var(--accent-primary)]/50
+                   focus:ring-2 focus:ring-(--accent-primary)/50
                    disabled:opacity-50"
             />
 
@@ -295,7 +295,7 @@ export default function VoiceEnrollment({
                 }
                 className="w-full px-4 py-3 rounded-full font-medium text-sm
                    transition-all flex items-center justify-center gap-2
-                   bg-[var(--accent-primary)] text-white 
+                   bg-(--accent-primary) text-white 
                    hover:brightness-110 active:scale-[0.98]
                    disabled:opacity-50 disabled:cursor-not-allowed">
                 <Image
@@ -309,9 +309,9 @@ export default function VoiceEnrollment({
 
             {/* Recording Panel - Shows ONLY when recording */}
             {isRecording && (
-                <div className="mt-4 p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20 animate-fadeIn">
+                <div className="mt-4 p-4 rounded-xl bg-(--bg-card) border border-(--border-color)/20 animate-fadeIn">
                     {/* Countdown Timer */}
-                    <div className="text-sm text-[var(--text-secondary)] mb-3">
+                    <div className="text-sm text-(--text-secondary) mb-3">
                         {formatCountdown(countdown)}
                     </div>
 
@@ -322,8 +322,8 @@ export default function VoiceEnrollment({
 
                     {/* Text to Read */}
                     <div className="text-sm">
-                        <span className="text-[var(--text-muted)]">Text:</span>
-                        <p className="text-[var(--text-primary)] mt-1 leading-relaxed">
+                        <span className="text-(--text-muted)">Text:</span>
+                        <p className="text-(--text-primary) mt-1 leading-relaxed">
                             {ENROLLMENT_TEXTS[currentTextIndex]}
                         </p>
                     </div>
@@ -332,7 +332,7 @@ export default function VoiceEnrollment({
 
             {/* Enrollment List Panel - Shows ONLY when showEnrollmentList is true AND not recording */}
             {showEnrollmentList && !isRecording && (
-                <div className="mt-4 p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20 animate-fadeIn">
+                <div className="mt-4 p-4 rounded-xl bg-(--bg-card) border border-(--border-color)/20 animate-fadeIn">
                     {/* Enrolled Voices List */}
                     {enrolledVoices.length > 0 ? (
                         <div className="space-y-1">
@@ -367,7 +367,7 @@ export default function VoiceEnrollment({
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[var(--text-muted)] text-center py-2">
+                        <p className="text-sm text-(--text-muted) text-center py-2">
                             Belum ada voice enrollment
                         </p>
                     )}
@@ -378,7 +378,7 @@ export default function VoiceEnrollment({
                             onClick={startEnroll}
                             disabled={isRecording}
                             className="w-full mt-3 px-4 py-2.5 rounded-lg 
-                         bg-[var(--accent-link)] text-white text-sm font-medium
+                         bg-(--accent-link) text-white text-sm font-medium
                          hover:brightness-110 transition-all
                          disabled:opacity-30 disabled:cursor-not-allowed">
                             Add new
@@ -387,7 +387,7 @@ export default function VoiceEnrollment({
 
                     {/* Max enrollment message */}
                     {enrolledVoices.length >= MAX_ENROLLMENTS && (
-                        <p className="text-xs text-[var(--text-muted)] mt-3 text-center">
+                        <p className="text-xs text-(--text-muted) mt-3 text-center">
                             Maksimal {MAX_ENROLLMENTS} voice enrollment tercapai
                         </p>
                     )}
@@ -455,9 +455,9 @@ function VoiceItem({
                         if (e.key === "Escape") onCancelEdit();
                     }}
                     onBlur={onSaveEdit}
-                    className="flex-1 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] 
-                     text-[var(--text-primary)] text-sm outline-none
-                     border border-[var(--accent-primary)]"
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-(--bg-tertiary) 
+                     text-(--text-primary) text-sm outline-none
+                     border border-(--accent-primary)"
                 />
             </div>
         );
@@ -465,14 +465,14 @@ function VoiceItem({
 
     return (
         <div className="relative flex items-center justify-between py-2 group">
-            <span className="text-[var(--text-primary)] text-sm">
+            <span className="text-(--text-primary) text-sm">
                 {voice.label}
             </span>
 
             {/* Three dots button */}
             <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors">
+                className="p-1 rounded hover:bg-(--bg-tertiary) transition-colors">
                 <ThreeDotsIcon />
             </button>
 
@@ -480,16 +480,16 @@ function VoiceItem({
             {showMenu && (
                 <div
                     ref={menuRef}
-                    className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-tertiary)] 
+                    className="absolute right-0 top-full mt-1 w-32 bg-(--bg-tertiary) 
                      rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                     border border-[var(--border-color)]/20">
+                     border border-(--border-color)/20">
                     <button
                         onClick={() => {
                             onStartEdit();
                             setShowMenu(false);
                         }}
-                        className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-[var(--text-primary)]
-                       hover:bg-[var(--bg-card)] transition-colors">
+                        className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-(--text-primary)
+                       hover:bg-(--bg-card) transition-colors">
                         <RenameIcon />
                         <span>Rename</span>
                     </button>
@@ -499,7 +499,7 @@ function VoiceItem({
                             setShowMenu(false);
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-400
-                       hover:bg-[var(--bg-card)] transition-colors">
+                       hover:bg-(--bg-card) transition-colors">
                         <MdDelete className="w-5 h-5" />
                         <span>Delete</span>
                     </button>
@@ -533,7 +533,7 @@ function ThreeDotsIcon() {
             height="16"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="text-[var(--text-muted)]">
+            className="text-(--text-muted)">
             <circle cx="12" cy="5" r="2" />
             <circle cx="12" cy="12" r="2" />
             <circle cx="12" cy="19" r="2" />

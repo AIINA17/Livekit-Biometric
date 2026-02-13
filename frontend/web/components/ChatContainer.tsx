@@ -69,7 +69,7 @@ export default function ChatContainer({
               <div className="self-start w-full max-w-[90%] animate-fadeIn">
                 <div className="flex gap-3 items-start">
                   {/* Agent Avatar */}
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0 bg-gray-100 border border-gray-200 text-black">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-gray-100 border border-gray-200 text-black">
                     🤖
                   </div>
                   

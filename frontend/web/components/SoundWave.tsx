@@ -38,7 +38,7 @@ export default function SoundWave({
 
 export function SoundWaveAnimated({ color = '#D97757' }: { color?: string }) {
   return (
-    <div className="flex items-end justify-center gap-[3px] h-8">
+    <div className="flex items-end justify-center gap-0.75 h-8">
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <div
           key={i}
@@ -61,7 +61,7 @@ export function SoundWaveStatic({ color = '#D97757' }: { color?: string }) {
   const heights = [8, 16, 24, 20, 24, 16, 8];
   
   return (
-    <div className="flex items-end justify-center gap-[3px] h-8">
+    <div className="flex items-end justify-center gap-0.75 h-8">
       {heights.map((height, i) => (
         <div
           key={i}

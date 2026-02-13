@@ -5,7 +5,7 @@ export default function TypingIndicator() {
   return (
     <div className="flex gap-3 self-start max-w-[80%] animate-fadeIn">
       {/* Avatar */}
-      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base flex-shrink-0 bg-gray-100 border border-gray-200 text-black">
+      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-gray-100 border border-gray-200 text-black">
         🤖
       </div>
 

@@ -2,6 +2,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { IoEye, IoEyeOff } from "react-icons/io5";
 
 interface AuthModalProps {
   mode: 'login' | 'signup';
@@ -96,7 +97,7 @@ export default function AuthModal({
                 className="absolute right-4 top-1/2 -translate-y-1/2 
                            text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                {showPassword ? <IoEyeOff /> : <IoEye />}
               </button>
             </div>
           </div>
@@ -133,71 +134,3 @@ export default function AuthModal({
   );
 }
 
-/* ============================================
-   ICONS
-   ============================================ */
-
-function EyeIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
-
-/* ============================================
-   CARA GANTI STYLE AUTH MODAL:
-   ============================================
-   
-   1. Modal Background:
-      - Sekarang: bg-[var(--bg-card)] (#30302E)
-      - Ganti di globals.css: --bg-card: #30302E;
-   
-   2. Input Background:
-      - Sekarang: bg-[var(--input-bg)] (#5C5C5C)
-   
-   3. Button Color (Orange):
-      - Sekarang: bg-[var(--accent-primary)] (#D97757)
-   
-   4. Link Color (Blue):
-      - Sekarang: text-[var(--accent-link)] (#4598C5)
-      - Ganti di globals.css: --accent-link: #4598C5;
-   
-   5. Backdrop Blur:
-      - Defined di globals.css: .modal-backdrop
-      - Background: rgba(0, 0, 0, 0.7)
-      - Blur: backdrop-filter: blur(8px)
-   
-   6. Rounded Corners:
-      - Modal: rounded-2xl
-      - Input: rounded-xl
-      - Button: rounded-full (pill)
-*/

@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react";
 import SoundWave from "./SoundWave";
 import Image from "next/image";
 import { MdModeEdit, MdDelete } from "react-icons/md";
+import { PiMicrophoneStage } from "react-icons/pi";
+import { IoLogOut, IoMenu, IoEllipsisVertical } from "react-icons/io5";
 
 // Text yang harus dibaca user saat enroll (rotate setiap enroll)
 const ENROLLMENT_TEXTS = [
@@ -293,17 +295,14 @@ export default function VoiceEnrollment({
                 disabled={
                     enrolledVoices.length >= MAX_ENROLLMENTS && !isRecording
                 }
-                className="w-full px-4 py-3 rounded-full font-medium text-sm
+                className="w-full px-4 py-3 rounded-xl font-medium text-sm
                    transition-all flex items-center justify-center gap-2
                    bg-[var(--accent-primary)] text-white 
                    hover:brightness-110 active:scale-[0.98]
                    disabled:opacity-50 disabled:cursor-not-allowed">
-                <Image
-                    src="/icons/Mic_Enroll.png" // path ke file kamu
-                    alt="Mic"
-                    width={16}
-                    height={16}
-                />
+
+                <PiMicrophoneStage />
+
                 <span>{isRecording ? "Stop Enroll" : "Enroll Voice"}</span>
             </button>
 
@@ -473,7 +472,7 @@ function VoiceItem({
             <button
                 onClick={() => setShowMenu(!showMenu)}
                 className="p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors">
-                <ThreeDotsIcon />
+                <IoEllipsisVertical />
             </button>
 
             {/* Dropdown Menu */}
@@ -490,7 +489,7 @@ function VoiceItem({
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-[var(--text-primary)]
                        hover:bg-[var(--bg-card)] transition-colors">
-                        <RenameIcon />
+                        <MdModeEdit />
                         <span>Rename</span>
                     </button>
                     <button
@@ -499,78 +498,12 @@ function VoiceItem({
                             setShowMenu(false);
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-400
-                       hover:bg-[var(--bg-card)] transition-colors">
+                       hover:bg-(--bg-card) transition-colors">
                         <MdDelete className="w-5 h-5" />
                         <span>Delete</span>
                     </button>
                 </div>
             )}
         </div>
-    );
-}
-
-/* Icons */
-function KeyIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-        </svg>
-    );
-}
-
-function ThreeDotsIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="text-[var(--text-muted)]">
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="19" r="2" />
-        </svg>
-    );
-}
-
-function RenameIcon() {
-    return (
-        <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-    );
-}
-
-function DeleteIcon() {
-    return (
-        <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <polyline points="3,6 5,6 21,6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
     );
 }

@@ -30,7 +30,7 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
       {!isUser && (
         <div className="flex-shrink-0 w-8 h-8">
           <Image
-            src="/happy-icon.png"
+            src="/icons/Happy_Warna.png"
             alt="Happy"
             width={32}
             height={32}
@@ -49,6 +49,7 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
               alt="Happy"
               width={16}
               height={16}
+              style={{ width: 'auto', height: 'auto' }}
               className="opacity-70"
             />
           )}
@@ -78,34 +79,3 @@ export default function MessageBubble({ message, userName = 'Username' }: Messag
     </div>
   );
 }
-
-/* ============================================
-   CARA GANTI STYLE MESSAGE BUBBLE:
-   ============================================
-   
-   1. User Bubble:
-      - Background: bg-[var(--bubble-user)] (#30302E)
-      - Text: text-[var(--text-primary)] (#FFFFFF)
-      - Border radius: rounded-2xl dengan rounded-br-md
-   
-   2. Agent Bubble:
-      - Background: bg-[var(--bubble-agent)] (#252624)
-      - Text: text-[var(--text-primary)] (#FFFFFF)
-      - Border radius: rounded-2xl dengan rounded-bl-md
-   
-   3. Ganti warna bubble di globals.css:
-      --bubble-user: #30302E;
-      --bubble-agent: #252624;
-   
-   4. Avatar Agent:
-      - Menggunakan /happy-icon.png
-      - Size: 32x32 px
-   
-   5. Name Label:
-      - Color: text-[var(--text-secondary)] (#C2C0B6)
-      - Size: text-sm
-   
-   6. Message Text:
-      - Size: text-base
-      - Line height: leading-relaxed
-*/

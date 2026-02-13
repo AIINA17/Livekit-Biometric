@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-/* Google Fonts - load via link tag in layout.tsx instead */
-
 :root {
   --bg-primary: #1F1E1D;
   --bg-secondary: #252624;

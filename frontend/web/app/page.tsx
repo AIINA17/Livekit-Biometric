@@ -1,3 +1,4 @@
+//app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,7 +12,7 @@ export default function Home() {
     // Auth state
     const [session, setSession] = useState<any | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [isLoading, setIsLoading] = useState(true); // Loading state untuk cek session
+    const [isLoading, setIsLoading] = useState(true);
 
     // Chat state
     const [messages, setMessages] = useState<Message[]>([]);
@@ -188,7 +189,7 @@ export default function Home() {
         setMessages([]);
         setProducts([]);
         setIsConnected(false);
-        setCurrentSessionId(null); // ✅ Clear session on logout
+        setCurrentSessionId(null);
     };
 
     // Loading screen

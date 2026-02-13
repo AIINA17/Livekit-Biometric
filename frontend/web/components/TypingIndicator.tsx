@@ -1,4 +1,3 @@
-// ========== components/TypingIndicator.tsx ==========
 'use client';
 
 export default function TypingIndicator() {
@@ -9,7 +8,7 @@ export default function TypingIndicator() {
         🤖
       </div>
 
-      {/* Content */}
+      
       <div className="flex flex-col gap-1 items-start">
         <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-gray-500 mb-1">
           AI Assistant

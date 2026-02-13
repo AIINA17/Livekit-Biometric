@@ -132,6 +132,7 @@ function WelcomeScreen({ isSpeaking }: { isSpeaking: boolean }) {
           alt="Happy Mascot"
           fill
           className="object-contain"
+          sizes="(max-width: 768px) 100vw, 192px"
           priority
         />
       </div>

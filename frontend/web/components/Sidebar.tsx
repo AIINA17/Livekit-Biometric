@@ -44,7 +44,10 @@ export default function Sidebar({
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
                 setShowUserMenu(false);
             }
         };
@@ -52,7 +55,8 @@ export default function Sidebar({
         if (showUserMenu) {
             document.addEventListener("mousedown", handleClickOutside);
         }
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
     }, [showUserMenu]);
 
     // Fetch sessions dari backend
@@ -153,7 +157,7 @@ export default function Sidebar({
     // Toggle Enrollment List - klik untuk show, klik lagi untuk hide
     const handleEnrollmentListClick = () => {
         setShowUserMenu(false);
-        setShowEnrollmentList(prev => !prev); // TOGGLE!
+        setShowEnrollmentList((prev) => !prev); // TOGGLE!
     };
 
     return (
@@ -219,18 +223,20 @@ export default function Sidebar({
 
             {/* User Section - Bottom */}
             {isLoggedIn && (
-                <div className="relative p-4 border-t border-[var(--border-color)]/20" ref={menuRef}>
+                <div
+                    className="relative p-4 border-t border-[var(--border-color)]/20"
+                    ref={menuRef}>
                     {/* User Menu Popup */}
                     {showUserMenu && (
-                        <div className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--bg-tertiary)] 
+                        <div
+                            className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--bg-tertiary)] 
                                         rounded-lg shadow-lg overflow-hidden animate-fadeIn
                                         border border-[var(--border-color)]/20">
                             {/* Enrollment List - TOGGLE */}
                             <button
                                 onClick={handleEnrollmentListClick}
                                 className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors"
-                            >
+                                           hover:bg-[var(--bg-card)] transition-colors">
                                 <Image
                                     src="/icons/EnrollmentList.png"
                                     alt="Enrollment List"
@@ -239,7 +245,7 @@ export default function Sidebar({
                                 />
                                 <span className="text-sm">Enrollment List</span>
                             </button>
-                            
+
                             {/* Log out */}
                             <button
                                 onClick={() => {
@@ -247,8 +253,7 @@ export default function Sidebar({
                                     setShowUserMenu(false);
                                 }}
                                 className="w-full px-4 py-4 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors"
-                            >
+                                           hover:bg-[var(--bg-card)] transition-colors">
                                 <Image
                                     src="/icons/Logout.png"
                                     alt="Enrollment List"
@@ -264,8 +269,7 @@ export default function Sidebar({
                     <button
                         onClick={() => setShowUserMenu(!showUserMenu)}
                         className="w-full flex items-center gap-3 p-2 rounded-lg 
-                                   hover:bg-[var(--bg-tertiary)] transition-colors"
-                    >
+                                   hover:bg-[var(--bg-tertiary)] transition-colors">
                         <div className="w-10 h-10 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center">
                             <span className="text-lg">👤</span>
                         </div>
@@ -307,7 +311,10 @@ function SessionItem({
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
                 setShowMenu(false);
             }
         };
@@ -315,7 +322,8 @@ function SessionItem({
         if (showMenu) {
             document.addEventListener("mousedown", handleClickOutside);
         }
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
     }, [showMenu]);
 
     useEffect(() => {
@@ -366,12 +374,14 @@ function SessionItem({
                     onClick={onSelect}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm cursor-pointer
                                transition-colors flex items-center justify-between group
-                               ${isActive
-                                   ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
-                                   : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-                               }`}
-                >
-                    <span className="truncate flex-1 pr-2">{session.label}</span>
+                               ${
+                                   isActive
+                                       ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
+                                       : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                               }`}>
+                    <span className="truncate flex-1 pr-2">
+                        {session.label}
+                    </span>
 
                     <button
                         onClick={(e) => {
@@ -379,8 +389,7 @@ function SessionItem({
                             setShowMenu(!showMenu);
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--bg-card)]
-                                   transition-opacity"
-                    >
+                                   transition-opacity">
                         <ThreeDotsIcon />
                     </button>
                 </div>
@@ -391,24 +400,21 @@ function SessionItem({
                     ref={menuRef}
                     className="absolute right-0 top-full mt-1 w-40 bg-[var(--bg-tertiary)] 
                                rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                               border border-[var(--border-color)]/20"
-                >
+                               border border-[var(--border-color)]/20">
                     <button
                         onClick={() => {
                             setIsRenaming(true);
                             setShowMenu(false);
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
-                                   hover:bg-[var(--bg-card)] transition-colors"
-                    >
+                                   hover:bg-[var(--bg-card)] transition-colors">
                         <RenameIcon />
                         <span>Rename</span>
                     </button>
                     <button
                         onClick={handleDeleteClick}
                         className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-amber-400
-                                   hover:bg-[var(--bg-card)] transition-colors"
-                    >
+                                   hover:bg-[var(--bg-card)] transition-colors">
                         <MdDelete />
                         <span>Delete</span>
                     </button>
@@ -424,7 +430,15 @@ function SessionItem({
 
 function EnrollmentIcon() {
     return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
             <circle cx="9" cy="7" r="4" />
             <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -433,19 +447,17 @@ function EnrollmentIcon() {
     );
 }
 
-function LogoutIcon() {
-    return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16,17 21,12 16,7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-    );
-}
-
 function MenuIcon() {
     return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round">
             <polyline points="7,8 12,3 17,8" />
             <polyline points="7,16 12,21 17,16" />
         </svg>
@@ -464,7 +476,15 @@ function ThreeDotsIcon() {
 
 function RenameIcon() {
     return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>

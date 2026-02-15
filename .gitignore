@@ -1,9 +1,18 @@
 venv/
 .vscode/
 __pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
 
 
 node_modules/
+.next/
+dist/
+build/
 
 # env file
 .env
@@ -13,7 +22,8 @@ backend/.env
 
 # audio cache folder
 /audio_cache/
+**/tmp_audio/
 
 /pretrained_models/
 
-backend/voiceverification/audio_cache/
+**/audio_cache/

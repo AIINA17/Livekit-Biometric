@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        container_name: backend
+        ports:
+            - "8000:8000"
+        env_file:
+            - ./backend/.env
+        restart: always
+
+    agent:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.agent
+        container_name: agent
+        env_file:
+            - ./backend/.env
+        depends_on:
+            - backend
+        restart: always
+
+    frontend:
+        build:
+            context: ./frontend/web
+        container_name: frontend
+        ports:
+            - "3000:3000"
+        env_file:
+            - ./frontend/web/.env
+        depends_on:
+            - backend
+        restart: always

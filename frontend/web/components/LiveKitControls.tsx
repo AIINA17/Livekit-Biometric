@@ -83,9 +83,9 @@ export default function LiveKitControls({
                 return "text-green-500";
             case "RECORDING":
             case "VERIFYING":
-                return "text-[var(--accent-primary)]";
+                return "text-(--accent-primary)";
             default:
-                return "text-[var(--text-muted)]";
+                return "text-(--text-muted)";
         }
     };
 
@@ -109,8 +109,8 @@ export default function LiveKitControls({
                         uiState === "CHATTING"
                             ? "bg-green-500"
                             : uiState === "RECORDING" || uiState === "VERIFYING"
-                              ? "bg-[var(--accent-primary)] animate-pulse"
-                              : "bg-[var(--text-muted)]"
+                                ? "bg-(--accent-primary) animate-pulse"
+                                : "bg-(--text-muted)"
                     }`}
                 />
                 <span className={`text-sm ${getStatusColor()}`}>

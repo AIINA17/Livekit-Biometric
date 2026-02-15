@@ -65,7 +65,7 @@ export default function ChatArea({
     const hasMessages = messages.length > 0 || products.length > 0;
 
     return (
-        <div className="flex-1 flex flex-col h-screen bg-[var(--bg-primary)]">
+        <div className="flex-1 flex flex-col h-screen bg-(--bg-primary)">
             {/* Chat Messages Area */}
             <div className="flex-1 overflow-y-auto">
                 {!hasMessages ? (
@@ -117,11 +117,11 @@ export default function ChatArea({
 function WelcomeScreen({ isSpeaking }: { isSpeaking: boolean }) {
     return (
         <div className="h-full flex flex-col items-center justify-center p-8">
-            <h1 className="font-outfit text-5xl font-bold text-[var(--accent-primary)] mb-4">
+            <h1 className="font-outfit text-5xl font-bold text-(--accent-primary) mb-4">
                 Happy
             </h1>
 
-            <p className="font-space text-xl text-[var(--text-primary)] mb-12">
+            <p className="font-space text-xl text-(--text-primary) mb-12">
                 Your personal shopping assistant
             </p>
 
@@ -131,6 +131,7 @@ function WelcomeScreen({ isSpeaking }: { isSpeaking: boolean }) {
                     alt="Happy Mascot"
                     fill
                     className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 192px"
                     priority
                 />
             </div>

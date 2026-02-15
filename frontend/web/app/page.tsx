@@ -1,3 +1,4 @@
+//app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -11,7 +12,7 @@ export default function Home() {
     // Auth state
     const [session, setSession] = useState<any | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [isLoading, setIsLoading] = useState(true); // Loading state untuk cek session
+    const [isLoading, setIsLoading] = useState(true);
 
     // Chat state
     const [messages, setMessages] = useState<Message[]>([]);
@@ -188,14 +189,14 @@ export default function Home() {
         setMessages([]);
         setProducts([]);
         setIsConnected(false);
-        setCurrentSessionId(null); // ✅ Clear session on logout
+        setCurrentSessionId(null);
     };
 
     // Loading screen
     if (isLoading) {
         return (
-            <main className="h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-                <div className="text-[var(--text-secondary)]">Loading...</div>
+            <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
+                <div className="text-(--text-secondary)">Loading...</div>
             </main>
         );
     }
@@ -203,7 +204,7 @@ export default function Home() {
     // NOT LOGGED IN - Show Auth Card
     if (!isLoggedIn) {
         return (
-            <main className="h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+            <main className="h-screen bg-(--bg-primary) flex items-center justify-center p-4">
                 <AuthCard onLogin={handleLogin} onSignup={handleSignup} />
             </main>
         );
@@ -211,7 +212,7 @@ export default function Home() {
 
     // LOGGED IN - Show Main App
     return (
-        <main className="h-screen bg-[var(--bg-primary)] flex overflow-hidden">
+        <main className="h-screen bg-(--bg-primary) flex overflow-hidden">
             {/* Sidebar */}
             <Sidebar
                 isLoggedIn={isLoggedIn}

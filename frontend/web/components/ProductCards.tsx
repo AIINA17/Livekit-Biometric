@@ -74,7 +74,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               )}
 
               {/* Product Name */}
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight text-white">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
                 {product.name}
               </h3>
 

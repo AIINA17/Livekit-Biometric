@@ -1,82 +1,84 @@
 // components/MessageBubble.tsx
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { Message } from '@/types';
+import Image from "next/image";
+import { Message } from "@/types";
 
 interface MessageBubbleProps {
-  message: Message;
-  userName?: string;
+    message: Message;
+    userName?: string;
 }
 
-export default function MessageBubble({ message, userName = 'Username' }: MessageBubbleProps) {
-  const { role, text, timestamp } = message;
-  const isUser = role === 'user';
+export default function MessageBubble({
+    message,
+    userName = "Username",
+}: MessageBubbleProps) {
+    const { role, text, timestamp } = message;
+    const isUser = role === "user";
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+    const formatTime = (date: Date) => {
+        return date.toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    };
 
-  return (
-    <div
-      className={`flex gap-3 max-w-[85%] animate-fadeIn ${
-        isUser ? 'ml-auto flex-row-reverse' : ''
-      }`}
-    >
-      {/* Avatar - Only for Agent */}
-      {!isUser && (
-        <div className="flex-shrink-0 w-8 h-8">
-          <Image
-            src="/happy-icon.png"
-            alt="Happy"
-            width={32}
-            height={32}
-            className="rounded-full"
-          />
-        </div>
-      )}
-
-      {/* Content */}
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-        {/* Name Label */}
-        <div className="flex items-center gap-2 mb-1">
-          {!isUser && (
-            <Image
-              src="/icons/Happy_Polos.png"
-              alt="Happy"
-              width={16}
-              height={16}
-              className="opacity-70"
-            />
-          )}
-          <span className="text-sm text-[var(--text-secondary)]">
-            {isUser ? userName : 'Happy'}
-          </span>
-        </div>
-
-        {/* Message Bubble */}
+    return (
         <div
-          className={`px-4 py-3 rounded-2xl max-w-full break-words ${
-            isUser
-              ? 'bg-[var(--bubble-user)] text-[var(--text-primary)] rounded-br-md'
-              : 'bg-[var(--bubble-agent)] text-[var(--text-primary)] rounded-bl-md'
-          }`}
-        >
-          <p className="text-base leading-relaxed">{text}</p>
-        </div>
+            className={`flex gap-3 max-w-[85%] animate-fadeIn ${
+                isUser ? "ml-auto flex-row-reverse" : ""
+            }`}>
+            {/* Avatar - Only for Agent */}
+            {!isUser && (
+                <div className="flex-shrink-0 w-8 h-8">
+                    <Image
+                        src="/happy-icon.png"
+                        alt="Happy"
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                    />
+                </div>
+            )}
 
-        {/* Timestamp - Optional */}
-        {/* 
+            {/* Content */}
+            <div
+                className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+                {/* Name Label */}
+                <div className="flex items-center gap-2 mb-1">
+                    {!isUser && (
+                        <Image
+                            src="/icons/Happy_Polos.png"
+                            alt="Happy"
+                            width={16}
+                            height={16}
+                            className="opacity-70"
+                        />
+                    )}
+                    <span className="text-sm text-[var(--text-secondary)]">
+                        {isUser ? userName : "Happy"}
+                    </span>
+                </div>
+
+                {/* Message Bubble */}
+                <div
+                    className={`px-4 py-3 rounded-2xl max-w-full break-words ${
+                        isUser
+                            ? "bg-[var(--bubble-user)] text-[var(--text-primary)] rounded-br-md"
+                            : "bg-[var(--bubble-agent)] text-[var(--text-primary)] rounded-bl-md"
+                    }`}>
+                    <p className="text-base leading-relaxed">{text}</p>
+                </div>
+
+                {/* Timestamp - Optional */}
+                {/* 
         <span className="text-xs text-[var(--text-muted)] mt-1">
           {formatTime(timestamp)}
         </span>
         */}
-      </div>
-    </div>
-  );
+            </div>
+        </div>
+    );
 }
 
 /* ============================================

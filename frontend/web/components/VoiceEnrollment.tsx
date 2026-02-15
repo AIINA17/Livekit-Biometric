@@ -6,7 +6,7 @@ import SoundWave from "./SoundWave";
 import Image from "next/image";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 
-// Text yang harus dibaca user saat enroll (rotate setiap enroll)
+
 const ENROLLMENT_TEXTS = [
     "Kami putra dan putri Indonesia, mengaku bertumpah darah yang satu, tanah air Indonesia.",
     "Kami putra dan putri Indonesia, mengaku berbangsa yang satu, bangsa Indonesia.",

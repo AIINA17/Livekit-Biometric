@@ -1,11 +1,12 @@
 import asyncio
 import json
-import json
 import logging
 import time
+
 import requests
-from livekit.agents.llm import function_tool
 from langchain_community.tools import DuckDuckGoSearchRun
+from livekit.agents.llm import function_tool
+
 from agent.state import agent_state
 
 
@@ -563,8 +564,6 @@ async def checkout(payment_method: str = "GoPay") -> str:
     ⚠️ This action requires voice verification for security.
     """
     # Check voice verification for sensitive action
-    print("DEBUG checkout voice:", agent_state["is_voice_verified"])
-
     voice_error = require_voice_verification("checkout", {"payment_method": payment_method})
     if voice_error:
         return voice_error

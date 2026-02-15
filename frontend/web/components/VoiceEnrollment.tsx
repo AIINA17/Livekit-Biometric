@@ -5,8 +5,10 @@ import { useState, useEffect, useRef } from "react";
 import SoundWave from "./SoundWave";
 import Image from "next/image";
 import { MdModeEdit, MdDelete } from "react-icons/md";
+import { PiMicrophoneStage } from "react-icons/pi";
+import { IoLogOut, IoMenu, IoEllipsisVertical } from "react-icons/io5";
 
-
+// Text yang harus dibaca user saat enroll (rotate setiap enroll)
 const ENROLLMENT_TEXTS = [
     "Kami putra dan putri Indonesia, mengaku bertumpah darah yang satu, tanah air Indonesia.",
     "Kami putra dan putri Indonesia, mengaku berbangsa yang satu, bangsa Indonesia.",
@@ -53,21 +55,6 @@ export default function VoiceEnrollment({
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
     const MAX_ENROLLMENTS = 3;
 
-    // Fetch enrolled voices from backend
-    useEffect(() => {
-        if (token) {
-            fetchEnrolledVoices();
-        }
-    }, [token]);
-
-    // Focus edit input when editing
-    useEffect(() => {
-        if (editingId && editInputRef.current) {
-            editInputRef.current.focus();
-            editInputRef.current.select();
-        }
-    }, [editingId]);
-
     const fetchEnrolledVoices = async () => {
         if (!token) return;
 
@@ -82,6 +69,20 @@ export default function VoiceEnrollment({
             console.error("Error fetching voice profiles:", error);
         }
     };
+    // Fetch enrolled voices from backend
+    useEffect(() => {
+        if (token) {
+            fetchEnrolledVoices();
+        }
+    }, [token]);
+
+    // Focus edit input when editing
+    useEffect(() => {
+        if (editingId && editInputRef.current) {
+            editInputRef.current.focus();
+            editInputRef.current.select();
+        }
+    }, [editingId]);
 
     // Start enrollment recording
     const startEnroll = async () => {
@@ -268,7 +269,7 @@ export default function VoiceEnrollment({
     return (
         <div className="space-y-3">
             {/* Label */}
-            <label className="block text-sm font-medium text-[var(--text-secondary)]">
+            <label className="block text-sm font-medium text-(--text-secondary)">
                 Voice Enrollment
             </label>
 
@@ -279,11 +280,11 @@ export default function VoiceEnrollment({
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Label / Nama Speaker"
                 disabled={isRecording}
-                className="w-full px-4 py-3 rounded-lg bg-[var(--input-bg)] 
+                className="w-full px-4 py-3 rounded-lg bg-(--input-bg) 
                    text-(--text-primary) text-sm
-                   placeholder:text-[var(--text-white-50)]
+                   placeholder:text-(--text-white-50)
                    border-none outline-none
-                   focus:ring-2 focus:ring-[var(--accent-primary)]/50
+                   focus:ring-2 focus:ring-(--accent-primary)/50
                    disabled:opacity-50"
             />
 
@@ -293,25 +294,21 @@ export default function VoiceEnrollment({
                 disabled={
                     enrolledVoices.length >= MAX_ENROLLMENTS && !isRecording
                 }
-                className="w-full px-4 py-3 rounded-full font-medium text-sm
+                className="w-full px-4 py-3 rounded-xl font-medium text-sm
                    transition-all flex items-center justify-center gap-2
-                   bg-[var(--accent-primary)] text-white 
-                   hover:brightness-110 active:scale-[0.98]
+                   bg-(--accent-primary) text-white 
+                   hover:brightness-110 active:scale-[0.98] cursor-pointer
                    disabled:opacity-50 disabled:cursor-not-allowed">
-                <Image
-                    src="/icons/Mic_Enroll.png" // path ke file kamu
-                    alt="Mic"
-                    width={16}
-                    height={16}
-                />
+                <PiMicrophoneStage />
+
                 <span>{isRecording ? "Stop Enroll" : "Enroll Voice"}</span>
             </button>
 
             {/* Recording Panel - Shows ONLY when recording */}
             {isRecording && (
-                <div className="mt-4 p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20 animate-fadeIn">
+                <div className="mt-4 p-4 rounded-xl bg-(--bg-card) border border-(--border-color)/20 animate-fadeIn">
                     {/* Countdown Timer */}
-                    <div className="text-sm text-[var(--text-secondary)] mb-3">
+                    <div className="text-sm text-(--text-secondary) mb-3">
                         {formatCountdown(countdown)}
                     </div>
 
@@ -322,8 +319,8 @@ export default function VoiceEnrollment({
 
                     {/* Text to Read */}
                     <div className="text-sm">
-                        <span className="text-[var(--text-muted)]">Text:</span>
-                        <p className="text-[var(--text-primary)] mt-1 leading-relaxed">
+                        <span className="text-(--text-muted)">Text:</span>
+                        <p className="text-(--text-primary) mt-1 leading-relaxed">
                             {ENROLLMENT_TEXTS[currentTextIndex]}
                         </p>
                     </div>
@@ -332,7 +329,7 @@ export default function VoiceEnrollment({
 
             {/* Enrollment List Panel - Shows ONLY when showEnrollmentList is true AND not recording */}
             {showEnrollmentList && !isRecording && (
-                <div className="mt-4 p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20 animate-fadeIn">
+                <div className="mt-4 p-4 rounded-xl bg-(--bg-card) border border-(--border-color)/20 animate-fadeIn">
                     {/* Enrolled Voices List */}
                     {enrolledVoices.length > 0 ? (
                         <div className="space-y-1">
@@ -367,7 +364,7 @@ export default function VoiceEnrollment({
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[var(--text-muted)] text-center py-2">
+                        <p className="text-sm text-(--text-muted) text-center py-2">
                             Belum ada voice enrollment
                         </p>
                     )}
@@ -378,8 +375,8 @@ export default function VoiceEnrollment({
                             onClick={startEnroll}
                             disabled={isRecording}
                             className="w-full mt-3 px-4 py-2.5 rounded-lg 
-                         bg-[var(--accent-link)] text-white text-sm font-medium
-                         hover:brightness-110 transition-all
+                         bg-(--accent-link) text-white text-sm font-medium
+                         hover:brightness-110 transition-all cursor-pointer
                          disabled:opacity-30 disabled:cursor-not-allowed">
                             Add new
                         </button>
@@ -387,7 +384,7 @@ export default function VoiceEnrollment({
 
                     {/* Max enrollment message */}
                     {enrolledVoices.length >= MAX_ENROLLMENTS && (
-                        <p className="text-xs text-[var(--text-muted)] mt-3 text-center">
+                        <p className="text-xs text-(--text-muted) mt-3 text-center">
                             Maksimal {MAX_ENROLLMENTS} voice enrollment tercapai
                         </p>
                     )}
@@ -455,9 +452,9 @@ function VoiceItem({
                         if (e.key === "Escape") onCancelEdit();
                     }}
                     onBlur={onSaveEdit}
-                    className="flex-1 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] 
-                     text-[var(--text-primary)] text-sm outline-none
-                     border border-[var(--accent-primary)]"
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-(--bg-tertiary) 
+                     text-(--text-primary) text-sm outline-none
+                     border border-(--accent-primary)"
                 />
             </div>
         );
@@ -465,32 +462,30 @@ function VoiceItem({
 
     return (
         <div className="relative flex items-center justify-between py-2 group">
-            <span className="text-[var(--text-primary)] text-sm">
-                {voice.label}
-            </span>
+            <span className="text-(--text-primary) text-sm">{voice.label}</span>
 
             {/* Three dots button */}
             <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors">
-                <ThreeDotsIcon />
+                className="p-1 rounded hover:bg-(--bg-tertiary) transition-colors cursor-pointer">
+                <IoEllipsisVertical />
             </button>
 
             {/* Dropdown Menu */}
             {showMenu && (
                 <div
                     ref={menuRef}
-                    className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-tertiary)] 
+                    className="absolute right-0 top-full mt-1 w-32 bg-(--bg-tertiary) 
                      rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                     border border-[var(--border-color)]/20">
+                     border border-(--border-color)/20">
                     <button
                         onClick={() => {
                             onStartEdit();
                             setShowMenu(false);
                         }}
-                        className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-[var(--text-primary)]
-                       hover:bg-[var(--bg-card)] transition-colors">
-                        <RenameIcon />
+                        className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-(--text-primary)
+                       hover:bg-(--bg-card) transition-colors cursor-pointer">
+                        <MdModeEdit className="w-5 h-5" />
                         <span>Rename</span>
                     </button>
                     <button
@@ -499,78 +494,12 @@ function VoiceItem({
                             setShowMenu(false);
                         }}
                         className="w-full px-4 py-2.5 flex items-center gap-2 text-sm text-red-400
-                       hover:bg-[var(--bg-card)] transition-colors">
+                       hover:bg-(--bg-card) transition-colors cursor-pointer">
                         <MdDelete className="w-5 h-5" />
                         <span>Delete</span>
                     </button>
                 </div>
             )}
         </div>
-    );
-}
-
-/* Icons */
-function KeyIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-        </svg>
-    );
-}
-
-function ThreeDotsIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="text-[var(--text-muted)]">
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="19" r="2" />
-        </svg>
-    );
-}
-
-function RenameIcon() {
-    return (
-        <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-    );
-}
-
-function DeleteIcon() {
-    return (
-        <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round">
-            <polyline points="3,6 5,6 21,6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
     );
 }

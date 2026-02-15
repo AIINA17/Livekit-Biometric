@@ -20,11 +20,11 @@ export default function VoiceButton({
       {isSpeaking && (
         <>
           <div 
-            className="absolute inset-0 rounded-full bg-[var(--accent-primary)] 
+            className="absolute inset-0 rounded-full bg-(--accent-primary) 
                        animate-pulse-ring opacity-30"
           />
           <div 
-            className="absolute inset-0 rounded-full bg-[var(--accent-primary)] 
+            className="absolute inset-0 rounded-full bg-(--accent-primary) 
                        animate-pulse-ring opacity-20"
             style={{ animationDelay: '0.5s' }}
           />
@@ -37,8 +37,8 @@ export default function VoiceButton({
         className={`relative w-20 h-20 rounded-full flex items-center justify-center
                     transition-all duration-200 active:scale-95 cursor-pointer
                     ${isSpeaking 
-                      ? 'bg-[var(--text-secondary)] border-4 border-[var(--accent-primary)]' 
-                      : 'bg-[var(--text-secondary)] border-3 border-[var(--accent-primary)] hover:scale-105 hover:shadow-lg'
+                      ? 'bg-(--text-secondary) border-4 border-(--accent-primary)' 
+                      : 'bg-(--text-secondary) border-3 border-(--accent-primary) hover:scale-105 hover:shadow-lg'
                     }`}
       >
         {/* Mic Icon */}

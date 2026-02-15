@@ -1,4 +1,3 @@
-// ========== components/StatusDisplay.tsx ==========
 'use client';
 
 interface StatusDisplayProps {

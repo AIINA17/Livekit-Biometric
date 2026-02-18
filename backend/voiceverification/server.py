@@ -110,18 +110,17 @@ async def join_token(request: Request):
     token.with_identity(user_id)
     token.with_grants(grant)
 
+
     # Dispatch agent to room
-    lk = LiveKitAPI(
+    async with LiveKitAPI(
         url=os.getenv("LIVEKIT_URL"),
         api_key=LIVEKIT_API_KEY,
         api_secret=LIVEKIT_API_SECRET,
-    )
+    ) as lk:
 
-    await lk.agent_dispatch.create_dispatch(
-        CreateAgentDispatchRequest(
-            room=room_name,
+        await lk.agent_dispatch.create_dispatch(
+            CreateAgentDispatchRequest(room=room_name)
         )
-    )
 
 
     return {

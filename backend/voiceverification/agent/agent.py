@@ -128,7 +128,6 @@ async def connect(ctx: agents.JobContext):
     )
 
 
-
     # ================= DATA CHANNEL =================
     @room.on("data_received")
     def on_data(packet):

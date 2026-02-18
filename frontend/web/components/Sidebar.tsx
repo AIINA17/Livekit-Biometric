@@ -168,11 +168,11 @@ export default function Sidebar({
             <div className="p-6 pb-4">
                 <div className="flex items-center gap-3">
                     <Image
-                        src="/icons/Happy_Polos.png"
+                        src="/icons/Happy_Warna.png"
                         alt="Happy"
-                        width={40}
-                        height={40}
-                        style={{ width: 'auto', height: 'auto' }}
+                        width={32}
+                        height={32}
+                        style={{ width: "40px", height: "40px" }}
                         className="object-contain"
                     />
                     <h1 className="font-space text-3xl font-bold text-(--text-primary)">

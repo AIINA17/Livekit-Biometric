@@ -3,15 +3,13 @@
 export default function TypingIndicator() {
   return (
     <div className="flex gap-3 self-start max-w-[80%] animate-fadeIn">
-      {/* Avatar */}
-      <div className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 bg-gray-100 border border-gray-200 text-black">
-        🤖
-      </div>
+      
+      
 
       
       <div className="flex flex-col gap-1 items-start">
         <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-          AI Assistant
+          Listening
         </div>
 
         <div className="px-4 py-3 rounded-2xl bg-gray-100 border border-gray-200 rounded-bl">

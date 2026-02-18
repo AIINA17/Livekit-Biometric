@@ -5,7 +5,7 @@ import { Room, RoomEvent, Track, createLocalAudioTrack } from "livekit-client";
 import { VerificationResult, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
 
-type UiState = "IDLE" | "LISTENING" | "RECORDING" | "VERIFYING" | "CHATTING";
+type UiState = "IDLE" | "CONNECTING" | "LISTENING" | "RECORDING" | "VERIFYING" | "CHATTING";
 
 interface UseLiveKitProps {
     token: string | null;
@@ -39,10 +39,11 @@ export function useLiveKit({
     /* ================= JOIN ROOM ================= */
 
     const joinRoom = useCallback(async () => {
-        if (isJoiningRef.current) return; // 🔥 StrictMode safe
+        if (isJoiningRef.current) return;
         isJoiningRef.current = true;
 
         try {
+            setUiState("CONNECTING");
             onRoomStatus("⏳ Connecting…");
 
             const {
@@ -53,6 +54,7 @@ export function useLiveKit({
 
             if (!accessToken) {
                 onRoomStatus("❌ Belum login");
+                setUiState("IDLE");
                 isJoiningRef.current = false;
                 return;
             }
@@ -68,6 +70,7 @@ export function useLiveKit({
             if (!res.ok) {
                 console.error(await res.text());
                 onRoomStatus("❌ Gagal ambil token");
+                setUiState("IDLE");
                 isJoiningRef.current = false;
                 return;
             }
@@ -86,6 +89,7 @@ export function useLiveKit({
                 isJoiningRef.current = false;
                 onRoomStatus("🔌 Disconnected");
                 setUiState("IDLE");
+                roomRef.current = null;
             });
 
             room.on(RoomEvent.DataReceived, (payload, _, __, topic) => {
@@ -107,9 +111,44 @@ export function useLiveKit({
         } catch (err) {
             console.error("Join error:", err);
             isJoiningRef.current = false;
+            setUiState("IDLE");
             onRoomStatus("❌ Connection error");
         }
     }, [SERVER_URL, LIVEKIT_URL, onRoomStatus]);
+
+    /* ================= LEAVE ROOM ================= */
+
+    const leaveRoom = useCallback(async () => {
+        if (roomRef.current) {
+            await roomRef.current.disconnect();
+            roomRef.current = null;
+        }
+        
+        // Stop any ongoing recording
+        if (recorderRef.current) {
+            recorderRef.current.stop();
+            recorderRef.current = null;
+        }
+        
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
+
+        isJoiningRef.current = false;
+        setUiState("IDLE");
+        onRoomStatus("🔌 Disconnected");
+    }, [onRoomStatus]);
+
+    /* ================= TOGGLE ROOM (JOIN/LEAVE) ================= */
+
+    const toggleRoom = useCallback(async () => {
+        if (uiState === "IDLE") {
+            await joinRoom();
+        } else {
+            await leaveRoom();
+        }
+    }, [uiState, joinRoom, leaveRoom]);
 
     /* ================= AGENT DATA ================= */
 
@@ -194,7 +233,7 @@ export function useLiveKit({
             if (!chunksRef.current.length) return;
 
             setUiState("VERIFYING");
-            onVerifyStatus("🔍 Memverifikasi suara...");
+            onVerifyStatus("🔐 Memverifikasi suara...");
 
             await sendForVerification(
                 new Blob(chunksRef.current, {
@@ -272,8 +311,15 @@ export function useLiveKit({
         setUiState("CHATTING");
     };
 
+    /* ================= CHECK IF CONNECTED ================= */
+    
+    const isConnected = uiState !== "IDLE" && uiState !== "CONNECTING";
+
     return {
         joinRoom,
+        leaveRoom,
+        toggleRoom,
         uiState,
+        isConnected,
     };
 }

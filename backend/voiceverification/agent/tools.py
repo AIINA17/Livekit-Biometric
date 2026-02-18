@@ -7,8 +7,6 @@ import requests
 from langchain_community.tools import DuckDuckGoSearchRun
 from livekit.agents.llm import function_tool
 
-from agent.state import agent_state
-
 
 # Base URL untuk e-commerce website
 BASE_URL = "https://dummy-ecommerce-tau.vercel.app"
@@ -39,6 +37,8 @@ auth_state = {
     # Product cards state
     "last_search_products": [],
     "room_ref": None,  # Will be set by agent
+
+    "agent_state": None,  # Placeholder for agent to store any additional state if needed
 }
 
 
@@ -51,21 +51,24 @@ def get_headers():
 
 
 def is_voice_verified() -> bool:
-    """
-    Check if voice is currently verified.
-    Returns False if never verified or if verification has expired.
-    """
-    if not agent_state["is_voice_verified"]:
+    state = auth_state.get("agent_state", {})
+
+    if not state.get("is_voice_verified"):
         return False
-    
-    # Check if verification has expired
+
     now = time.time()
-    if (now - agent_state["last_verified_at"]) > REVERIFY_INTERVAL:
-        agent_state["is_voice_verified"] = False
-        agent_state["voice_status"] = "EXPIRED"
+    last_verified = state.get("last_verified_at")
+
+    if not last_verified:
         return False
-    
+
+    if (now - last_verified) > REVERIFY_INTERVAL:
+        state["is_voice_verified"] = False
+        state["voice_status"] = "EXPIRED"
+        return False
+
     return True
+
 
 
 def require_voice_verification(action_name: str, params=None) -> str | None:
@@ -74,7 +77,8 @@ def require_voice_verification(action_name: str, params=None) -> str | None:
     Chat is NEVER blocked.
     """
 
-    status = agent_state.get("voice_status", "UNKNOWN")
+    state = auth_state.get("agent_state", {})
+    status = state.get("voice_status", "UNKNOWN")
 
     # ✅ Sudah verified → boleh lanjut
     if status == "VERIFIED":
@@ -106,57 +110,61 @@ async def send_product_cards(products: list):
     """Send product cards to frontend AND save to database"""
     import json
     import logging
-    from db.conversation_logs import insert_conversation_log
-    from agent.state import agent_state
     from db.connection import get_supabase
-    
-    session_id = agent_state.get("conversation_session_id")
-    
+
+    # Ambil state dari agent (bukan agent.state lagi)
+    state = auth_state.get("agent_state", {})
+    session_id = state.get("conversation_session_id")
+
     if not session_id:
         logging.error("❌ PRODUCT_CARDS NOT SAVED: conversation_session_id is None")
         return
-    
+
     product_cards_json = json.dumps(products[:8], ensure_ascii=False)
-    
+
     # ================================
     # 1️⃣ SAVE TO DATABASE
     # ================================
     try:
         sb = get_supabase()
-        
-        sb.table("conversation_logs").insert({
+
+        sb.table("product_cards").insert({
             "session_id": str(session_id),
-            "role": "assistant",
-            "content": f"🛍️ Menampilkan {len(products[:8])} produk",
-            "product_cards": product_cards_json  # ← Save to product_cards column (JSONB)
+            "products": products[:8],
         }).execute()
-        
-        logging.info(f"✅ PRODUCT_CARDS SAVED TO DB (session={session_id}, count={len(products[:8])})")
+
+        logging.info(
+            f"✅ PRODUCT_CARDS SAVED (session={session_id}, count={len(products[:8])})"
+        )
+
     except Exception as e:
-        logging.error(f"❌ Failed to save product cards to DB: {e}")
-    
+        logging.error(f"❌ Failed to save product cards: {e}")
+
     # ================================
     # 2️⃣ SEND TO FRONTEND (Real-time)
     # ================================
     room = auth_state.get("room_ref")
+
     if room:
         try:
-            # ⏰ DELAY 2s
             await asyncio.sleep(2)
-            
+
             payload = json.dumps({
                 "type": "PRODUCT_CARDS",
                 "products": products[:8]
             }).encode("utf-8")
-            
+
             await room.local_participant.publish_data(
                 payload,
                 reliable=True,
                 topic="PRODUCT_DATA"
             )
-            logging.info(f"📤 PRODUCT_CARDS SENT REALTIME")
+
+            logging.info("📤 PRODUCT_CARDS SENT REALTIME")
+
         except Exception as e:
             logging.error(f"❌ Failed realtime PRODUCT_CARDS: {e}")
+
 
 # ==================== GENERAL TOOLS ====================
 
@@ -261,10 +269,12 @@ async def check_login_status() -> str:
 @function_tool
 async def check_voice_status() -> str:
     """Check current voice verification status."""
-    status = agent_state["voice_status"]
+    state = auth_state.get("agent_state", {})
+    status = state.get("voice_status", "UNKNOWN")
+
     
     if is_voice_verified():
-        elapsed = int(time.time() - agent_state["last_verified_at"])
+        elapsed = int(time.time() - state["last_verified_at"])
         remaining = REVERIFY_INTERVAL - elapsed
         return f"✅ Suara lo udah terverifikasi. Verifikasi aktif {remaining} detik lagi."
     elif status == "EXPIRED":

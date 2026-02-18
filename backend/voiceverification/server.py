@@ -25,7 +25,7 @@ from core.decision_engine import Decision
 from core.behavior_profile import BehaviorProfile
 
 from utils.audio import save_audio, normalize_audio
-from utils.csv_log import log_verify
+
 
 from db.behavior_repo import (load_behavior_profile,save_behavior_profile)
 
@@ -110,6 +110,20 @@ async def join_token(request: Request):
     token.with_identity(user_id)
     token.with_grants(grant)
 
+    # Dispatch agent to room
+    lk = LiveKitAPI(
+        url=os.getenv("LIVEKIT_URL"),
+        api_key=LIVEKIT_API_KEY,
+        api_secret=LIVEKIT_API_SECRET,
+    )
+
+    await lk.agent_dispatch.create_dispatch(
+        CreateAgentDispatchRequest(
+            room=room_name,
+        )
+    )
+
+
     return {
         "status": "OK",
         "token": token.to_jwt(),
@@ -153,14 +167,8 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
 
         print("Verify took:", time.time() - start)
 
-        # 4️⃣ Logging (optional)
-        log_verify(
-            result["score"],
-            result["spoof_prob"],
-            Decision.VERIFIED if result["verified"] else Decision.DENIED
-        )
 
-        # 5️⃣ Response ke client / agent
+        # 5️ Response ke client / agent
         return {
             "verified": result["verified"],
             "status": result["decision"],

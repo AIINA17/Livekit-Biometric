@@ -296,7 +296,6 @@ async def get_conversation_logs(
     user_id = get_user_id_from_request(request)
     sb = get_supabase()
 
-    # Optional: pastikan session milik user
     session_check = (
         sb.table("conversation_sessions")
         .select("id")
@@ -316,12 +315,20 @@ async def get_conversation_logs(
         .execute()
     )
 
+    product_cards = (
+        sb.table("product_cards")
+        .select("id, products, created_at")
+        .eq("session_id", session_id)
+        .order("created_at")
+        .execute()
+    )
+
     return {
         "status": "OK",
         "session_id": session_id,
-        "logs": logs.data or []
+        "logs": logs.data or [],
+        "product_cards": product_cards.data or []
     }
-
 
 # =========================
 # UPDATE SESSION LABEL

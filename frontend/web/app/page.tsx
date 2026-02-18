@@ -8,6 +8,12 @@ import ChatArea from "@/components/ChatArea";
 import AuthCard from "@/components/AuthCard";
 import { Message, Product } from "@/types";
 
+const mergeProducts = (prev: Product[], incoming: Product[]): Product[] => {
+    const map = new Map(prev.map((p) => [p.id, p]));
+    incoming.forEach((p) => map.set(p.id, p));
+    return Array.from(map.values());
+};
+
 export default function Home() {
     // Auth state
     const [session, setSession] = useState<any | null>(null);
@@ -76,16 +82,12 @@ export default function Home() {
         setMessages((prev) => [...prev, newMessage]);
     };
 
-    // Product handler
     const handleProductCards = (newProducts: Product[]) => {
-        setProducts(newProducts);
+        setProducts((prev) => mergeProducts(prev, newProducts));
     };
 
-    // ✅ SESSION HANDLERS - ADDED
     const handleSelectSession = async (sessionId: string) => {
         if (!session?.access_token || !SERVER_URL) return;
-
-        console.log("📂 Loading session:", sessionId);
         setCurrentSessionId(sessionId);
 
         try {
@@ -97,44 +99,23 @@ export default function Home() {
                     },
                 },
             );
-
-            if (!res.ok) {
-                console.error("Failed to load session logs:", res.status);
-                return;
-            }
-
+            if (!res.ok) return;
             const data = await res.json();
-            console.log("📥 Loaded logs:", data.logs?.length || 0);
 
-            // Parse logs into messages and products
-            const newMessages: Message[] = [];
-            let newProducts: Product[] = [];
+            const newMessages: Message[] = (data.logs || []).map(
+                (log: any) => ({
+                    role: log.role,
+                    text: log.content,
+                    timestamp: new Date(log.created_at),
+                }),
+            );
 
-            data.logs?.forEach((log: any) => {
-                // Check if product_cards column has data
-                if (log.product_cards) {
-                    try {
-                        const products = JSON.parse(log.product_cards);
-                        newProducts = products; // Use latest products
-                        console.log(
-                            "🛍️ Loaded products from DB:",
-                            products.length,
-                        );
-                    } catch (e) {
-                        console.error("Failed to parse product_cards:", e);
-                    }
-                } else {
-                    // Regular text message
-                    newMessages.push({
-                        role: log.role,
-                        text: log.content,
-                        timestamp: new Date(log.created_at),
-                    });
-                }
-            });
+            const allProducts: Product[] = (data.product_cards || []).flatMap(
+                (card: any) => card.products || [],
+            );
 
             setMessages(newMessages);
-            setProducts(newProducts);
+            setProducts(mergeProducts([], allProducts));
         } catch (error) {
             console.error("Error loading session:", error);
         }

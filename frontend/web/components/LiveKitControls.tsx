@@ -24,8 +24,6 @@ interface LiveKitControlsProps {
 
 export default function LiveKitControls({
     token,
-    isConnected,
-    isSpeaking,
     setIsSpeaking,
     setIsConnected,
     setRoomStatus,
@@ -139,10 +137,10 @@ export default function LiveKitControls({
                         uiState === "CHATTING"
                             ? "bg-green-500"
                             : uiState === "RECORDING" || uiState === "VERIFYING" || uiState === "LISTENING"
-                                ? "bg-[var(--accent-primary)] animate-pulse"
+                                ? "bg-(--accent-primary) animate-pulse"
                                 : uiState === "CONNECTING"
                                     ? "bg-yellow-500 animate-pulse"
-                                    : "bg-[var(--text-muted)]"
+                                    : "bg-(--text-muted)"
                     }`}
                 />
                 <span className={`text-sm ${getStatusColor()}`}>

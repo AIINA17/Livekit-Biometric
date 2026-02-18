@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { PiMicrophoneStage } from "react-icons/pi";
 import { IoEllipsisVertical } from "react-icons/io5";
+import { FaRegCircleStop } from "react-icons/fa6";
 import SoundWave from "./SoundWave";
 
 const ENROLLMENT_TEXTS = [
@@ -98,7 +99,7 @@ export default function VoiceEnrollment({
     }, [token, SERVER_URL]);
 
     /* =========================
-        ECORDING
+        RECORDING
     ========================== */
 
     const stopEnroll = () => {
@@ -262,57 +263,133 @@ export default function VoiceEnrollment({
     ========================== */
 
     return (
-        <div className="space-y-3">
-            <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="Label / Nama Speaker"
-                disabled={isRecording}
-                className="w-full px-4 py-3 rounded-lg"
-            />
+        <>
+            {/* Main Sidebar Content */}
+            <div className="space-y-3">
+                <input
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder="Label / Nama Speaker"
+                    disabled={isRecording}
+                    className="w-full px-4 py-3 rounded-lg bg-[var(--input-bg)] 
+                               text-[var(--text-primary)] text-sm
+                               placeholder:text-[var(--text-white-50)]
+                               border-none outline-none
+                               focus:ring-2 focus:ring-[var(--accent-primary)]/50
+                               disabled:opacity-50"
+                />
 
-            <button
-                onClick={isRecording ? stopEnroll : startEnroll}
-                disabled={
-                    enrolledVoices.length >= MAX_ENROLLMENTS && !isRecording
-                }
-                className="w-full px-4 py-3 rounded-xl flex items-center justify-center gap-2 bg-blue-600 text-white">
-                <PiMicrophoneStage />
-                {isRecording ? "Stop Enroll" : "Enroll Voice"}
-            </button>
+                <button
+                    onClick={startEnroll}
+                    disabled={
+                        enrolledVoices.length >= MAX_ENROLLMENTS || isRecording
+                    }
+                    className="w-full px-4 py-3 rounded-xl flex items-center justify-center gap-2 
+                               bg-[var(--accent-primary)] text-white font-medium
+                               hover:brightness-110 active:scale-[0.98]
+                               disabled:opacity-50 disabled:cursor-not-allowed
+                               transition-all"
+                >
+                    <PiMicrophoneStage size={18} />
+                    <span>Enroll Voice</span>
+                </button>
 
+                {/* Enrollment List */}
+                {showEnrollmentList && !isRecording && (
+                    <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20">
+                        {enrolledVoices.length > 0 ? (
+                            enrolledVoices.map((voice) => (
+                                <VoiceItem
+                                    key={voice.id}
+                                    voice={voice}
+                                    isEditing={editingId === voice.id}
+                                    editingLabel={editingLabel}
+                                    onStartEdit={() => {
+                                        setEditingId(voice.id);
+                                        setEditingLabel(voice.label);
+                                    }}
+                                    onCancelEdit={() => setEditingId(null)}
+                                    onChangeLabel={setEditingLabel}
+                                    onSaveEdit={() =>
+                                        handleRenameVoice(voice.id, editingLabel)
+                                    }
+                                    onDelete={() => handleDeleteVoice(voice.id)}
+                                    inputRef={editInputRef}
+                                />
+                            ))
+                        ) : (
+                            <p className="text-sm text-[var(--text-muted)] text-center py-2">
+                                Belum ada voice enrollment
+                            </p>
+                        )}
+
+                        {enrolledVoices.length < MAX_ENROLLMENTS && (
+                            <button
+                                onClick={startEnroll}
+                                disabled={isRecording}
+                                className="w-full mt-3 px-4 py-2.5 rounded-lg 
+                                           bg-[var(--accent-link)] text-white text-sm font-medium
+                                           hover:brightness-110 transition-all
+                                           disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Add new
+                            </button>
+                        )}
+
+                        {enrolledVoices.length >= MAX_ENROLLMENTS && (
+                            <p className="text-xs text-[var(--text-muted)] mt-3 text-center">
+                                Maksimal {MAX_ENROLLMENTS} voice enrollment tercapai
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ========== RECORDING POPUP MODAL ========== */}
             {isRecording && (
-                <div className="p-4 border rounded-xl">
-                    <div>00:{countdown.toString().padStart(2, "0")}</div>
-                    <SoundWave />
-                    <p>{ENROLLMENT_TEXTS[currentTextIndex]}</p>
-                </div>
-            )}
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Backdrop blur */}
+                    <div 
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                        onClick={stopEnroll}
+                    />
+                    
+                    {/* Modal Content */}
+                    <div className="relative z-10 w-full max-w-lg mx-4 p-8 rounded-2xl 
+                                    bg-[var(--bg-primary)] shadow-2xl animate-fadeIn text-center">
+                        {/* Countdown Timer */}
+                        <div className="text-2xl font-mono text-[var(--text-primary)] mb-8">
+                            00:{countdown.toString().padStart(2, "0")}
+                        </div>
+                        
+                        {/* Sound Wave */}
+                        <div className="flex justify-center mb-8">
+                            <SoundWave />
+                        </div>
+                        
+                        {/* Text to Read */}
+                        <div className="mb-8">
+                            <p className="text-lg text-[var(--text-secondary)] mb-2">Text:</p>
+                            <p className="text-xl text-[var(--text-primary)] leading-relaxed font-medium">
+                                {ENROLLMENT_TEXTS[currentTextIndex]}
+                            </p>
+                        </div>
 
-            {showEnrollmentList && !isRecording && (
-                <div className="p-4 border rounded-xl">
-                    {enrolledVoices.map((voice) => (
-                        <VoiceItem
-                            key={voice.id}
-                            voice={voice}
-                            isEditing={editingId === voice.id}
-                            editingLabel={editingLabel}
-                            onStartEdit={() => {
-                                setEditingId(voice.id);
-                                setEditingLabel(voice.label);
-                            }}
-                            onCancelEdit={() => setEditingId(null)}
-                            onChangeLabel={setEditingLabel}
-                            onSaveEdit={() =>
-                                handleRenameVoice(voice.id, editingLabel)
-                            }
-                            onDelete={() => handleDeleteVoice(voice.id)}
-                            inputRef={editInputRef}
-                        />
-                    ))}
+                        {/* Stop Button */}
+                        <button
+                            onClick={stopEnroll}
+                            className="w-full max-w-xs mx-auto px-6 py-3 rounded-xl 
+                                       bg-[var(--accent-primary)] text-white font-medium
+                                       hover:brightness-110 active:scale-[0.98]
+                                       transition-all flex items-center justify-center gap-2"
+                        >
+                            <FaRegCircleStop size={18} />
+                            <span>Stop Enroll</span>
+                        </button>
+                    </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }
 
@@ -397,10 +474,10 @@ function VoiceItem({
                         if (e.key === "Escape") onCancelEdit();
                     }}
                     className="w-full px-3 py-2 rounded-lg
-                            bg-[#1f1f1f]
-                            text-white text-sm
-                            border border-blue-500/60
-                            focus:ring-2 focus:ring-blue-500/40
+                            bg-[var(--bg-tertiary)]
+                            text-[var(--text-primary)] text-sm
+                            border border-[var(--accent-primary)]/60
+                            focus:ring-2 focus:ring-[var(--accent-primary)]/40
                             outline-none"
                 />
 
@@ -409,7 +486,7 @@ function VoiceItem({
                         onClick={onCancelEdit}
                         className="px-3 py-1.5 text-xs font-medium
                                 bg-white/10 hover:bg-white/20
-                                text-gray-300 rounded-lg transition">
+                                text-[var(--text-secondary)] rounded-lg transition">
                         Cancel
                     </button>
 
@@ -417,7 +494,7 @@ function VoiceItem({
                         onClick={onSaveEdit}
                         disabled={!editingLabel.trim()}
                         className="px-3 py-1.5 text-xs font-medium
-                                bg-blue-600 hover:bg-blue-700
+                                bg-[var(--accent-primary)] hover:brightness-110
                                 disabled:opacity-40 disabled:cursor-not-allowed
                                 text-white rounded-lg transition">
                         Save
@@ -429,33 +506,36 @@ function VoiceItem({
 
     return (
         <div className="flex justify-between items-center py-2">
-            <span>{voice.label}</span>
+            <span className="text-[var(--text-primary)] text-sm">{voice.label}</span>
 
             <div className="relative">
-                <button onClick={() => setShowMenu(!showMenu)}>
-                    <IoEllipsisVertical />
+                <button 
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors"
+                >
+                    <IoEllipsisVertical className="text-[var(--text-muted)]" />
                 </button>
 
                 {showMenu && (
                     <div
                         ref={menuRef}
                         className="absolute right-0 top-full mt-2 w-36
-                                bg-[#1f1f1f]
-                                border border-white/10
+                                bg-[var(--bg-tertiary)]
+                                border border-[var(--border-color)]/20
                                 rounded-xl
                                 shadow-xl
                                 overflow-hidden
-                                z-50">
+                                z-50 animate-fadeIn">
                         <button
                             onClick={() => {
                                 onStartEdit();
                                 setShowMenu(false);
                             }}
                             className="w-full px-4 py-3 flex items-center gap-3
-                                    text-sm text-white
-                                    hover:bg-white/10
+                                    text-sm text-[var(--text-primary)]
+                                    hover:bg-[var(--bg-card)]
                                     transition-colors">
-                            <MdModeEdit className="w-4 h-4 text-gray-300" />
+                            <MdModeEdit className="w-4 h-4 text-[var(--text-secondary)]" />
                             <span>Rename</span>
                         </button>
 

@@ -47,6 +47,8 @@ from agent.tools import (
     pay_order,
     get_order_history,
     get_order_detail,
+
+    auth_state
 )
 
 # ================= CONFIG =================
@@ -115,8 +117,14 @@ async def connect(ctx: agents.JobContext):
         "greeted": False,
     }
 
+    auth_state["agent_state"] = room_state  # Share state with tools
+    auth_state["room_ref"] = room  # Share room reference for tools to send messages if needed
+
     session = AgentSession(
-        llm=google.beta.realtime.RealtimeModel(voice="Charon")
+        llm=google.beta.realtime.RealtimeModel(
+            model="models/gemini-2.5-flash-native-audio-latest",
+            voice="Charon",
+        )
     )
 
 
@@ -127,6 +135,7 @@ async def connect(ctx: agents.JobContext):
             return
 
         try:
+            print("RAW VOICE RESULT:", packet.data)
             decoded = json.loads(packet.data.decode())
             decision = decoded.get("decision") or decoded.get("status")
 
@@ -168,6 +177,7 @@ async def connect(ctx: agents.JobContext):
         print(f"{role.upper()}: {text}")
 
         if role == "user":
+            asyncio.create_task(ensure_conversation_session())
             if room_state["voice_status"] != "VERIFIED":
 
                 if room_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
@@ -239,6 +249,18 @@ async def connect(ctx: agents.JobContext):
         await asyncio.sleep(0.3)
         await send_cmd("START_RECORD")
 
+    async def ensure_conversation_session():
+        if room_state["conversation_session_id"]:
+            return
+
+        session_id = create_conversation_session(
+            user_id=room_state["user_id"],
+            label="New session",
+        )
+
+        room_state["conversation_session_id"] = session_id
+        print("📝 Session created:", session_id)
+
     # ================= START SESSION =================
     await session.start(
         room=room,
@@ -260,14 +282,6 @@ async def connect(ctx: agents.JobContext):
 
     room_state["user_id"] = identity
 
-    # Buat session DB
-    session_id = create_conversation_session(
-        user_id=identity,
-        label=f"Session for {identity}"
-    )
-    room_state["conversation_session_id"] = session_id
-
-    print("📝 Session created:", session_id)
 
     # 🔥 GREETING LANGSUNG DI SINI
     await session.generate_reply(

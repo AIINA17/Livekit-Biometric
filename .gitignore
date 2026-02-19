@@ -27,3 +27,8 @@ backend/.env
 /pretrained_models/
 
 **/audio_cache/
+
+backend/voiceverification/pretrained_models/
+pretrained_models/
+*.pt
+*.ckpt

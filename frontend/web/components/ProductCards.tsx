@@ -34,7 +34,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
             key={product.id}
             className="bg-black-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
           >
-            {/* Image */}
+            
             <div className="relative aspect-square bg-black-50 overflow-hidden">
               {product.image_url ? (
                 <img

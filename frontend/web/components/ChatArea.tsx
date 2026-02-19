@@ -37,17 +37,13 @@ interface ChatAreaProps {
 
 export default function ChatArea({
     messages,
-    setMessages,
     isConnected,
     setIsConnected,
     isTyping,
     setIsTyping,
     products,
-    isLoggedIn,
     isSpeaking,
     setIsSpeaking,
-    speakingRole,
-    setSpeakingRole,
     token,
     addMessage,
     onProductCards,
@@ -68,10 +64,8 @@ export default function ChatArea({
         }
     }, [messages, products, isTyping, viewMode]);
 
-    const hasMessages = messages.length > 0;
-
     return (
-        <div className="flex-1 flex flex-col h-screen bg-[var(--bg-primary)] relative">
+        <div className="flex-1 flex flex-col h-screen bg-(--bg-primary) relative">
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto">
                 {viewMode === "voice" ? (
@@ -130,14 +124,14 @@ interface ModeToggleProps {
 
 function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
     return (
-        <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--bg-tertiary)]">
+        <div className="flex items-center gap-2 p-1 mt-3 rounded-full bg-(--bg-tertiary)">
             {/* Voice Mode Button */}
             <button
                 onClick={() => onModeChange("voice")}
                 className={`p-2.5 rounded-full transition-all duration-200
                     ${currentMode === "voice"
                         ? "bg-(--accent-primary) text-(--text-primary) shadow-sm"
-                        : "text-(--text-muted) hover:text-(--text-secondary)"
+                        : "text-(--text-muted) hover:text-(--text-secondary) cursor-pointer"
                     }`}
                 title="Voice Mode"
             >
@@ -150,11 +144,11 @@ function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
                 className={`p-2.5 rounded-full transition-all duration-200
                     ${currentMode === "chat"
                         ? "bg-(--accent-primary) text-(--text-primary) shadow-sm"
-                        : "text-(--text-muted) hover:text-(--text-secondary)"
+                        : "text-(--text-muted) hover:text-(--text-secondary) cursor-pointer"
                     }`}
                 title="Chat Mode"
             >
-                <IoChatbubblesOutline size={18} />
+                <IoChatbubblesOutline size={20} />
             </button>
         </div>
     );
@@ -173,11 +167,11 @@ function VoiceModeView({ isSpeaking, products }: VoiceModeViewProps) {
     return (
         <div className="h-full flex flex-col items-center justify-center p-8">
             {/* Title */}
-            <h1 className="font-outfit text-5xl font-bold text-[var(--accent-primary)] mb-4">
+            <h1 className="font-outfit text-5xl font-bold text-(--accent-primary) mb-4">
                 Happy
             </h1>
 
-            <p className="font-space text-xl text-[var(--text-primary)] mb-8">
+            <p className="font-space text-xl text-(--text-primary) mb-8">
                 Your personal shopping assistant
             </p>
 
@@ -228,12 +222,12 @@ function ChatModeView({ messages, products, isTyping, messagesEndRef }: ChatMode
             <div className="h-full flex flex-col items-center justify-center p-8">
                 <IoChatbubblesOutline 
                     size={64} 
-                    className="text-[var(--text-muted)] mb-4" 
+                    className="text-(--text-muted) mb-4" 
                 />
-                <p className="text-[var(--text-muted)] text-lg">
+                <p className="text---text-muted) text-lg">
                     Belum ada pesan
                 </p>
-                <p className="text-[var(--text-muted)] text-sm mt-2">
+                <p className="text-(--text-muted) text-sm mt-2">
                     Mulai percakapan dengan menekan tombol mic
                 </p>
             </div>

@@ -28,11 +28,11 @@ export default function VoiceButton({
       {isSpeaking && (
         <>
           <div 
-            className="absolute inset-0 rounded-full bg-[var(--accent-primary)] 
+            className="absolute inset-0 rounded-full bg-(--accent-primary)
                        animate-pulse-ring opacity-30"
           />
           <div 
-            className="absolute inset-0 rounded-full bg-[var(--accent-primary)] 
+            className="absolute inset-0 rounded-full bg-(--accent-primary)
                        animate-pulse-ring opacity-20"
             style={{ animationDelay: '0.5s' }}
           />
@@ -43,7 +43,7 @@ export default function VoiceButton({
       {isConnecting && (
         <div 
           className="absolute inset-0 rounded-full border-4 border-transparent 
-                     border-t-[var(--accent-primary)] animate-spin"
+                     border-t-(--accent-primary) animate-spin"
         />
       )}
 
@@ -73,7 +73,7 @@ export default function VoiceButton({
           
           <FaRegStopCircle className="--text-primary" size={30} />
         ) : (
-          // Mic icon when idle
+
           <Image
             src="/icons/Microphone.png"
             alt="Mic"
@@ -84,28 +84,6 @@ export default function VoiceButton({
           />
         )}
       </button>
-
-      {/* Label under button */}
-      <p className="text-center text-xs text-[var(--text-muted)] mt-2">
-        {isConnecting && 'Connecting...'}
-        {state === 'idle' && 'Tap to start'}
-        {state === 'connected' && 'Tap to end'}
-        {state === 'speaking' && 'Listening...'}
-      </p>
     </div>
-  );
-}
-
-/* Stop Icon */
-function StopIcon() {
-  return (
-    <svg 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="white"
-    >
-      <rect x="6" y="6" width="12" height="12" rx="2" />
-    </svg>
   );
 }

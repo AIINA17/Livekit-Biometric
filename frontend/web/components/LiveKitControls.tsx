@@ -131,7 +131,7 @@ export default function LiveKitControls({
             />
 
             {/* Status Display */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 mb-3">
                 <div
                     className={`w-2 h-2 rounded-full ${
                         uiState === "CHATTING"
@@ -143,7 +143,7 @@ export default function LiveKitControls({
                                     : "bg-(--text-muted)"
                     }`}
                 />
-                <span className={`text-sm ${getStatusColor()}`}>
+                <span className={`text-md ${getStatusColor()}`}>
                     {getStatusText()}
                 </span>
             </div>

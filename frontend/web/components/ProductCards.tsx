@@ -2,6 +2,8 @@
 'use client';
 
 import { Product } from '@/types';
+import Image from 'next/image';
+import Link from 'next/link';
 
 interface ProductCardsProps {
   products: Product[];
@@ -29,17 +31,22 @@ export default function ProductCards({ products }: ProductCardsProps) {
 
       {/* Products Grid */}
       <div className="grid grid-cols-2 gap-3">
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="bg-black-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer"
-          >
+      {products.map((product) => (
+        <Link
+          key={product.id}
+          href={`https://dummy-ecommerce-tau.vercel.app/product/${product.id}`}
+          target='_blank'
+          rel="noopener noreferrer"
+          className="block"
+        >
+          <div className="bg-black-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer">
             {/* Image */}
             <div className="relative aspect-square bg-black-50 overflow-hidden">
               {product.image_url ? (
-                <img
+                <Image
                   src={product.image_url}
                   alt={product.name}
+                  fill
                   className="object-cover"
                   sizes="(max-width: 768px) 50vw, 25vw"
                 />
@@ -74,7 +81,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               )}
 
               {/* Product Name */}
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+              <h3 className="text-sm font-semibold text-white mb-2 line-clamp-2 leading-tight">
                 {product.name}
               </h3>
 
@@ -107,6 +114,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
               )}
             </div>
           </div>
+        </Link>
         ))}
       </div>
 

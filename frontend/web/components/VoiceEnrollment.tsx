@@ -271,11 +271,11 @@ export default function VoiceEnrollment({
                     onChange={(e) => setLabel(e.target.value)}
                     placeholder="Label / Nama Speaker"
                     disabled={isRecording}
-                    className="w-full px-4 py-3 rounded-lg bg-[var(--input-bg)] 
-                               text-[var(--text-primary)] text-sm
-                               placeholder:text-[var(--text-white-50)]
+                    className="w-full px-4 py-3 rounded-lg bg-(--input-bg) 
+                               text-(--text-primary) text-sm
+                               placeholder:text-(--text-white-50)
                                border-none outline-none
-                               focus:ring-2 focus:ring-[var(--accent-primary)]/50
+                               focus:ring-2 focus:ring-(--accent-primary)/50
                                disabled:opacity-50"
                 />
 
@@ -285,7 +285,7 @@ export default function VoiceEnrollment({
                         enrolledVoices.length >= MAX_ENROLLMENTS || isRecording
                     }
                     className="w-full px-4 py-3 rounded-xl flex items-center justify-center gap-2 
-                               bg-[var(--accent-primary)] text-white font-medium
+                               bg-(--accent-primary) text-white font-medium
                                hover:brightness-110 active:scale-[0.98]
                                disabled:opacity-50 disabled:cursor-not-allowed
                                transition-all"
@@ -296,7 +296,7 @@ export default function VoiceEnrollment({
 
                 {/* Enrollment List */}
                 {showEnrollmentList && !isRecording && (
-                    <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]/20">
+                    <div className="p-4 rounded-xl bg-(--bg-card) border border-(--border-color)/20">
                         {enrolledVoices.length > 0 ? (
                             enrolledVoices.map((voice) => (
                                 <VoiceItem
@@ -318,7 +318,7 @@ export default function VoiceEnrollment({
                                 />
                             ))
                         ) : (
-                            <p className="text-sm text-[var(--text-muted)] text-center py-2">
+                            <p className="text-sm text-(--text-muted) text-center py-2">
                                 Belum ada voice enrollment
                             </p>
                         )}
@@ -328,7 +328,7 @@ export default function VoiceEnrollment({
                                 onClick={startEnroll}
                                 disabled={isRecording}
                                 className="w-full mt-3 px-4 py-2.5 rounded-lg 
-                                           bg-[var(--accent-link)] text-white text-sm font-medium
+                                           bg-(--accent-link) text-white text-sm font-medium
                                            hover:brightness-110 transition-all
                                            disabled:opacity-30 disabled:cursor-not-allowed"
                             >
@@ -337,7 +337,7 @@ export default function VoiceEnrollment({
                         )}
 
                         {enrolledVoices.length >= MAX_ENROLLMENTS && (
-                            <p className="text-xs text-[var(--text-muted)] mt-3 text-center">
+                            <p className="text-xs text-(--text-muted) mt-3 text-center">
                                 Maksimal {MAX_ENROLLMENTS} voice enrollment tercapai
                             </p>
                         )}
@@ -356,9 +356,9 @@ export default function VoiceEnrollment({
                     
                     {/* Modal Content */}
                     <div className="relative z-10 w-full max-w-lg mx-4 p-8 rounded-2xl 
-                                    bg-[var(--bg-primary)] shadow-2xl animate-fadeIn text-center">
+                                    bg-(--bg-primary) shadow-2xl animate-fadeIn text-center">
                         {/* Countdown Timer */}
-                        <div className="text-2xl font-mono text-[var(--text-primary)] mb-8">
+                        <div className="text-2xl font-mono text-(--text-primary) mb-8">
                             00:{countdown.toString().padStart(2, "0")}
                         </div>
                         
@@ -369,8 +369,8 @@ export default function VoiceEnrollment({
                         
                         {/* Text to Read */}
                         <div className="mb-8">
-                            <p className="text-lg text-[var(--text-secondary)] mb-2">Text:</p>
-                            <p className="text-xl text-[var(--text-primary)] leading-relaxed font-medium">
+                            <p className="text-lg text-(--text-secondary) mb-2">Text:</p>
+                            <p className="text-xl text-(--text-primary) leading-relaxed font-medium">
                                 {ENROLLMENT_TEXTS[currentTextIndex]}
                             </p>
                         </div>
@@ -379,7 +379,7 @@ export default function VoiceEnrollment({
                         <button
                             onClick={stopEnroll}
                             className="w-full max-w-xs mx-auto px-6 py-3 rounded-xl 
-                                       bg-[var(--accent-primary)] text-white font-medium
+                                       bg-(--accent-primary) text-white font-medium
                                        hover:brightness-110 active:scale-[0.98]
                                        transition-all flex items-center justify-center gap-2"
                         >
@@ -474,10 +474,10 @@ function VoiceItem({
                         if (e.key === "Escape") onCancelEdit();
                     }}
                     className="w-full px-3 py-2 rounded-lg
-                            bg-[var(--bg-tertiary)]
-                            text-[var(--text-primary)] text-sm
-                            border border-[var(--accent-primary)]/60
-                            focus:ring-2 focus:ring-[var(--accent-primary)]/40
+                            bg-(--bg-tertiary)
+                            text-(--text-primary) text-sm
+                            border border-(--accent-primary)/60
+                            focus:ring-2 focus:ring-(--accent-primary)/40
                             outline-none"
                 />
 
@@ -486,7 +486,7 @@ function VoiceItem({
                         onClick={onCancelEdit}
                         className="px-3 py-1.5 text-xs font-medium
                                 bg-white/10 hover:bg-white/20
-                                text-[var(--text-secondary)] rounded-lg transition">
+                                text-(--text-secondary) rounded-lg transition">
                         Cancel
                     </button>
 
@@ -494,7 +494,7 @@ function VoiceItem({
                         onClick={onSaveEdit}
                         disabled={!editingLabel.trim()}
                         className="px-3 py-1.5 text-xs font-medium
-                                bg-[var(--accent-primary)] hover:brightness-110
+                                bg-(--accent-primary hover:brightness-110
                                 disabled:opacity-40 disabled:cursor-not-allowed
                                 text-white rounded-lg transition">
                         Save
@@ -506,22 +506,22 @@ function VoiceItem({
 
     return (
         <div className="flex justify-between items-center py-2">
-            <span className="text-[var(--text-primary)] text-sm">{voice.label}</span>
+            <span className="text(--text-primary text-sm">{voice.label}</span>
 
             <div className="relative">
                 <button 
                     onClick={() => setShowMenu(!showMenu)}
-                    className="p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors"
+                    className="p-1 rounded hover:bg(--bg-tertiary transition-colors"
                 >
-                    <IoEllipsisVertical className="text-[var(--text-muted)]" />
+                    <IoEllipsisVertical className="text(--text-muted" />
                 </button>
 
                 {showMenu && (
                     <div
                         ref={menuRef}
                         className="absolute right-0 top-full mt-2 w-36
-                                bg-[var(--bg-tertiary)]
-                                border border-[var(--border-color)]/20
+                                bg(--bg-tertiary
+                                border border(--border-color/20
                                 rounded-xl
                                 shadow-xl
                                 overflow-hidden
@@ -532,10 +532,10 @@ function VoiceItem({
                                 setShowMenu(false);
                             }}
                             className="w-full px-4 py-3 flex items-center gap-3
-                                    text-sm text-[var(--text-primary)]
-                                    hover:bg-[var(--bg-card)]
+                                    text-sm text(--text-primary
+                                    hover:bg(--bg-card
                                     transition-colors">
-                            <MdModeEdit className="w-4 h-4 text-[var(--text-secondary)]" />
+                            <MdModeEdit className="w-4 h-4 text(--text-secondary)" />
                             <span>Rename</span>
                         </button>
 

@@ -13,15 +13,8 @@ export default function MessageBubble({
     message,
     userName = "You",
 }: MessageBubbleProps) {
-    const { role, text, timestamp } = message;
+    const { role, text } = message;
     const isUser = role === "user";
-
-    const formatTime = (date: Date) => {
-        return date.toLocaleTimeString("id-ID", {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
-    };
 
     return (
         <div

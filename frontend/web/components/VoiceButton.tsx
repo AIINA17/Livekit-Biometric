@@ -2,6 +2,7 @@
 'use client';
 
 import Image from 'next/image';
+import { FaRegStopCircle } from "react-icons/fa";
 
 type ButtonState = 'idle' | 'connecting' | 'connected' | 'speaking';
 
@@ -54,10 +55,10 @@ export default function VoiceButton({
                     transition-all duration-200 cursor-pointer
                     disabled:opacity-50 disabled:cursor-not-allowed
                     ${isActive 
-                      ? 'bg-[var(--accent-primary)] border-4 border-[var(--accent-primary)] active:scale-95' 
+                      ? 'bg-(--accent-primary) border-4 border-(--accent-primary) active:scale-95' 
                       : isConnecting
-                        ? 'bg-[var(--text-secondary)] border-4 border-[var(--accent-primary)] opacity-70'
-                        : 'bg-[var(--text-secondary)] border-3 border-[var(--accent-primary)] hover:scale-105 hover:shadow-lg active:scale-95'
+                        ? 'bg-(--text-secondary) border-4 border-(--accent-primary) opacity-70'
+                        : 'bg-(--text-secondary) border-3 border-(--accent-primary) hover:scale-105 hover:shadow-lg active:scale-95'
                     }`}
       >
         {/* Icon changes based on state */}
@@ -69,8 +70,8 @@ export default function VoiceButton({
             <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         ) : isActive ? (
-          // Stop icon when connected
-          <StopIcon />
+          
+          <FaRegStopCircle className="--text-primary" size={30} />
         ) : (
           // Mic icon when idle
           <Image

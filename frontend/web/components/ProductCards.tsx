@@ -24,7 +24,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
     <div className="w-full">
       {/* Header */}
       <div className="mb-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-white">
+        <div className="flex items-center gap-2 text-md font-medium text-white">
           🛍️ <span>{products.length} Produk Ditemukan</span>
         </div>
       </div>

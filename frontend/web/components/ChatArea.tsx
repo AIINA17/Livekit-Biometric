@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FaMicrophone } from "react-icons/fa";
 import { IoChatbubblesOutline } from "react-icons/io5";
+import { MdShoppingBag } from "react-icons/md";
 import { Message, Product } from "@/types";
 import MessageBubble from "./MessageBubble";
 import ProductCards from "./ProductCards";
@@ -62,59 +63,86 @@ export default function ChatArea({
         if (viewMode === "chat") {
             scrollToBottom();
         }
-    }, [messages, products, isTyping, viewMode]);
+    }, [messages, isTyping, viewMode]);
 
     return (
-        <div className="flex-1 flex flex-col h-screen bg-(--bg-primary) relative">
-            {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto">
-                {viewMode === "voice" ? (
-                    /* ========== VOICE MODE ========== */
-                    <VoiceModeView 
-                        isSpeaking={isSpeaking} 
-                        products={products}
+        <div className="flex-1 flex h-screen bg-(--bg-primary) overflow-hidden">
+
+            {/* ====== LEFT: Main Content Area ====== */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto">
+                    {viewMode === "voice" ? (
+                        <VoiceModeView isSpeaking={isSpeaking} />
+                    ) : (
+                        <ChatModeView
+                            messages={messages}
+                            isTyping={isTyping}
+                            messagesEndRef={messagesEndRef}
+                        />
+                    )}
+                </div>
+
+                <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
+                    <ModeToggle
+                        currentMode={viewMode}
+                        onModeChange={setViewMode}
                     />
-                ) : (
-                    /* ========== CHAT MODE ========== */
-                    <ChatModeView
-                        messages={messages}
-                        products={products}
-                        isTyping={isTyping}
-                        messagesEndRef={messagesEndRef}
+                    <LiveKitControls
+                        token={token}
+                        isSpeaking={isSpeaking}
+                        isConnected={isConnected}
+                        setIsSpeaking={setIsSpeaking}
+                        setIsConnected={setIsConnected}
+                        setRoomStatus={setRoomStatus}
+                        setVerifyStatus={setVerifyStatus}
+                        setScore={setScore}
+                        setIsAgentSpeaking={setIsSpeaking}
+                        addMessage={addMessage}
+                        onProductCards={onProductCards}
+                        setIsTyping={setIsTyping}
                     />
-                )}
+                </div>
             </div>
 
-            
-            <div className="p-1 flex flex-col items-center gap-4">
-                
-                <ModeToggle 
-                    currentMode={viewMode} 
-                    onModeChange={setViewMode} 
-                />
-
-                {/* LiveKit Controls (Voice Button) */}
-                <LiveKitControls
-                    token={token}
-                    isSpeaking={isSpeaking}
-                    isConnected={isConnected}
-                    setIsSpeaking={setIsSpeaking}
-                    setIsConnected={setIsConnected}
-                    setRoomStatus={setRoomStatus}
-                    setVerifyStatus={setVerifyStatus}
-                    setScore={setScore}
-                    setIsAgentSpeaking={setIsSpeaking}
-                    addMessage={addMessage}
-                    onProductCards={onProductCards}
-                    setIsTyping={setIsTyping}
-                />
-            </div>
+            {/* ====== RIGHT: Product Sidebar ====== */}
+            <ProductSidebar products={products} />
         </div>
     );
 }
 
 /* ========================================
-   MODE TOGGLE COMPONENT
+PRODUCT SIDEBAR
+======================================== */
+
+interface ProductSidebarProps {
+    products: Product[];
+}
+
+function ProductSidebar({ products }: ProductSidebarProps) {
+    return (
+        <div
+            className={`
+                flex flex-col border-l border-(--bg-tertiary) bg-(--bg-secondary)
+                transition-all duration-300 ease-in-out
+                ${products.length > 0 
+                    ? "w-160 opacity-100" 
+                    : "w-0 opacity-0 overflow-hidden border-l-0"}
+            `}
+        >
+            {products.length > 0 && (
+                <>
+                    <div className="flex-1 overflow-y-auto p-3">
+                        <ProductCards products={products} />
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+/* ========================================
+MODE TOGGLE COMPONENT
 ======================================== */
 
 interface ModeToggleProps {
@@ -125,7 +153,6 @@ interface ModeToggleProps {
 function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
     return (
         <div className="flex items-center gap-2 p-1 mt-3 rounded-full bg-(--bg-tertiary)">
-            {/* Voice Mode Button */}
             <button
                 onClick={() => onModeChange("voice")}
                 className={`p-2.5 rounded-full transition-all duration-200
@@ -138,7 +165,6 @@ function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
                 <FaMicrophone size={16} />
             </button>
 
-            {/* Chat Mode Button */}
             <button
                 onClick={() => onModeChange("chat")}
                 className={`p-2.5 rounded-full transition-all duration-200
@@ -155,18 +181,16 @@ function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
 }
 
 /* ========================================
-   VOICE MODE VIEW
+   VOICE MODE VIEW (no products here)
 ======================================== */
 
 interface VoiceModeViewProps {
     isSpeaking: boolean;
-    products: Product[];
 }
 
-function VoiceModeView({ isSpeaking, products }: VoiceModeViewProps) {
+function VoiceModeView({ isSpeaking }: VoiceModeViewProps) {
     return (
         <div className="h-full flex flex-col items-center justify-center p-8">
-            {/* Title */}
             <h1 className="font-outfit text-5xl font-bold text-(--accent-primary) mb-4">
                 Happy
             </h1>
@@ -175,7 +199,6 @@ function VoiceModeView({ isSpeaking, products }: VoiceModeViewProps) {
                 Your personal shopping assistant
             </p>
 
-            {/* Happy Mascot */}
             <div className="relative w-56 h-56 mb-6">
                 <Image
                     src="/icons/Happy_Warna.png"
@@ -187,17 +210,9 @@ function VoiceModeView({ isSpeaking, products }: VoiceModeViewProps) {
                 />
             </div>
 
-            {/* Sound Wave - Show when speaking */}
             {isSpeaking && (
                 <div className="mb-6">
                     <SoundWave />
-                </div>
-            )}
-
-            {/* Product Cards - Show in voice mode too */}
-            {products.length > 0 && (
-                <div className="w-full max-w-4xl mt-8 animate-fadeIn">
-                    <ProductCards products={products} />
                 </div>
             )}
         </div>
@@ -210,21 +225,19 @@ function VoiceModeView({ isSpeaking, products }: VoiceModeViewProps) {
 
 interface ChatModeViewProps {
     messages: Message[];
-    products: Product[];
     isTyping: boolean;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
-function ChatModeView({ messages, products, isTyping, messagesEndRef }: ChatModeViewProps) {
-    if (messages.length === 0 && products.length === 0) {
-        // Empty state - no messages yet
+function ChatModeView({ messages, isTyping, messagesEndRef }: ChatModeViewProps) {
+    if (messages.length === 0) {
         return (
             <div className="h-full flex flex-col items-center justify-center p-8">
-                <IoChatbubblesOutline 
-                    size={64} 
-                    className="text-(--text-muted) mb-4" 
+                <IoChatbubblesOutline
+                    size={64}
+                    className="text-(--text-muted) mb-4"
                 />
-                <p className="text---text-muted) text-lg">
+                <p className="text-(--text-muted) text-lg">
                     Belum ada pesan
                 </p>
                 <p className="text-(--text-muted) text-sm mt-2">
@@ -239,12 +252,6 @@ function ChatModeView({ messages, products, isTyping, messagesEndRef }: ChatMode
             {messages.map((msg, idx) => (
                 <MessageBubble key={idx} message={msg} />
             ))}
-
-            {products.length > 0 && (
-                <div className="animate-fadeIn">
-                    <ProductCards products={products} />
-                </div>
-            )}
 
             {isTyping && <TypingIndicator />}
 

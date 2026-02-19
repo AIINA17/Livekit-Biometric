@@ -176,40 +176,59 @@ export default function Sidebar({
         <aside
             ref={sidebarRef}
             style={{ width: isCollapsed ? COLLAPSED_WIDTH : "360px" }}
-            className="h-screen bg-[var(--bg-secondary)] flex flex-col border-r border-[var(--border-color)]/20 
+            className="h-screen bg-(--bg-secondary) flex flex-col border-r border-[var(--border-color)]/20 
                        transition-[width] duration-300 ease-in-out relative"
         >
-            {/* Collapse/Expand Button */}
-            <button
-                onClick={toggleCollapse}
-                className="absolute -right-3 top-6 z-10 w-6 h-6 rounded-full 
-                           bg-[var(--bg-tertiary)] border border-[var(--border-color)]/30
-                           flex items-center justify-center
-                           hover:bg-[var(--bg-card)] transition-colors cursor-pointer
-                           text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-                {isCollapsed ? <IoChevronForward size={14} /> : <IoChevronBack size={14} />}
-            </button>
+{/* Collapse Button - Hanya muncul saat expanded */}
+{!isCollapsed && (
+    <button
+        onClick={toggleCollapse}
+        className="absolute -right-3 top-6 z-10 w-10 h-10 rounded-xl 
+                   bg-(--bg-tertiary) border border-(--border-color)/30
+                   flex items-center justify-center
+                   hover:bg-(--bg-card) transition-colors cursor-pointer
+                   text-(--text-muted) hover:text-(--text-primary)"
+        title="Collapse sidebar"
+    >
+        <IoChevronBack size={14} />
+    </button>
+)}
 
-            {/* Logo Header */}
-            <div className={`p-4 pb-4 ${isCollapsed ? 'flex justify-center' : ''}`}>
-                <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-                    <Image
-                        src="/icons/Happy_Warna.png"
-                        alt="Happy"
-                        width={32}
-                        height={32}
-                        style={{ width: "40px", height: "40px" }}
-                        className="object-contain"
-                    />
-                    {!isCollapsed && (
-                        <h1 className="font-space text-3xl font-bold text-[var(--text-primary)]">
-                            Happy
-                        </h1>
-                    )}
-                </div>
-            </div>
+{/* Logo Header */}
+<div className={`p-4 pb-4 ${isCollapsed ? 'flex justify-center mt-4' : ''}`}>
+    {isCollapsed ? (
+        // Collapsed: Logo jadi tombol expand
+        <button
+            onClick={toggleCollapse}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            title="Expand sidebar"
+        >
+            <Image
+                src="/icons/Happy_Warna.png"
+                alt="Happy"
+                width={32}
+                height={32}
+                style={{ width: "40px", height: "40px" }}
+                className="object-contain"
+            />
+        </button>
+    ) : (
+        // Expanded: Logo biasa (bukan tombol)
+        <div className="flex items-center gap-3">
+            <Image
+                src="/icons/Happy_Warna.png"
+                alt="Happy"
+                width={32}
+                height={32}
+                style={{ width: "40px", height: "40px" }}
+                className="object-contain"
+            />
+            <h1 className="font-space text-3xl font-bold text-[var(--text-primary)]">
+                Happy
+            </h1>
+        </div>
+    )}
+</div>
 
             {/* Voice Enrollment Section - Hidden when collapsed */}
             {!isCollapsed && (

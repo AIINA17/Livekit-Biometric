@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import VoiceEnrollment from "./VoiceEnrollment";
-import { IoMenu, IoEllipsisVertical } from "react-icons/io5";
+import { IoMenu, IoEllipsisVertical, IoChevronBack, IoChevronForward } from "react-icons/io5";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { PiUserSoundBold } from "react-icons/pi";
 import { LuLogOut } from "react-icons/lu";
@@ -25,6 +25,8 @@ interface SidebarProps {
     onNewChat?: () => void;
 }
 
+const COLLAPSED_WIDTH = 72;
+
 export default function Sidebar({
     isLoggedIn,
     userEmail,
@@ -36,10 +38,13 @@ export default function Sidebar({
     onNewChat,
 }: SidebarProps) {
     const [showUserMenu, setShowUserMenu] = useState(false);
-    const [showEnrollmentList, setShowEnrollmentList] = useState(false); // Default FALSE
+    const [showEnrollmentList, setShowEnrollmentList] = useState(false);
     const [sessions, setSessions] = useState<ConversationSession[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    
     const menuRef = useRef<HTMLDivElement>(null);
+    const sidebarRef = useRef<HTMLElement>(null);
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
@@ -156,85 +161,139 @@ export default function Sidebar({
         }
     };
 
-    // Toggle Enrollment List - klik untuk show, klik lagi untuk hide
+    // Toggle Enrollment List
     const handleEnrollmentListClick = () => {
         setShowUserMenu(false);
-        setShowEnrollmentList((prev) => !prev); // TOGGLE!
+        setShowEnrollmentList((prev) => !prev);
+    };
+
+    // Toggle collapse
+    const toggleCollapse = () => {
+        setIsCollapsed((prev) => !prev);
     };
 
     return (
-        <aside className="w-90 h-screen bg-(--bg-secondary) flex flex-col border-r border-(--border-color)/20">
-            {/* Logo Header */}
-            <div className="p-6 pb-4">
-                <div className="flex items-center gap-3">
-                    <Image
-                        src="/icons/Happy_Warna.png"
-                        alt="Happy"
-                        width={32}
-                        height={32}
-                        style={{ width: "40px", height: "40px" }}
-                        className="object-contain"
+        <aside
+            ref={sidebarRef}
+            style={{ width: isCollapsed ? COLLAPSED_WIDTH : "360px" }}
+            className="h-screen bg-(--bg-secondary) flex flex-col border-r border-[var(--border-color)]/20 
+                       transition-[width] duration-300 ease-in-out relative"
+        >
+{/* Collapse Button - Hanya muncul saat expanded */}
+{!isCollapsed && (
+    <button
+        onClick={toggleCollapse}
+        className="absolute -right-3 top-6 z-10 w-10 h-10 rounded-xl 
+                   bg-(--bg-tertiary) border border-(--border-color)/30
+                   flex items-center justify-center
+                   hover:bg-(--bg-card) transition-colors cursor-pointer
+                   text-(--text-muted) hover:text-(--text-primary)"
+        title="Collapse sidebar"
+    >
+        <IoChevronBack size={14} />
+    </button>
+)}
+
+{/* Logo Header */}
+<div className={`p-4 pb-4 ${isCollapsed ? 'flex justify-center mt-4' : ''}`}>
+    {isCollapsed ? (
+        // Collapsed: Logo jadi tombol expand
+        <button
+            onClick={toggleCollapse}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            title="Expand sidebar"
+        >
+            <Image
+                src="/icons/Happy_Warna.png"
+                alt="Happy"
+                width={32}
+                height={32}
+                style={{ width: "40px", height: "40px" }}
+                className="object-contain"
+            />
+        </button>
+    ) : (
+        // Expanded: Logo biasa (bukan tombol)
+        <div className="flex items-center gap-3">
+            <Image
+                src="/icons/Happy_Warna.png"
+                alt="Happy"
+                width={32}
+                height={32}
+                style={{ width: "40px", height: "40px" }}
+                className="object-contain"
+            />
+            <h1 className="font-space text-3xl font-bold text-[var(--text-primary)]">
+                Happy
+            </h1>
+        </div>
+    )}
+</div>
+
+            {/* Voice Enrollment Section - Hidden when collapsed */}
+            {!isCollapsed && (
+                <div className="px-6 pb-6">
+                    <VoiceEnrollment
+                        token={token}
+                        setVerifyStatus={setVerifyStatus}
+                        showEnrollmentList={showEnrollmentList}
+                        setShowEnrollmentList={setShowEnrollmentList}
                     />
-                    <h1 className="font-space text-3xl font-bold text-(--text-primary)">
-                        Happy
-                    </h1>
                 </div>
-            </div>
+            )}
 
-            {/* Voice Enrollment Section */}
-            <div className="px-6 pb-6">
-                <VoiceEnrollment
-                    token={token}
-                    setVerifyStatus={setVerifyStatus}
-                    showEnrollmentList={showEnrollmentList}
-                    setShowEnrollmentList={setShowEnrollmentList}
-                />
-            </div>
+            {/* Recents Section - Hidden when collapsed */}
+            {!isCollapsed && (
+                <div className="flex-1 px-6 overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-sm font-medium text-[var(--text-secondary)]">
+                            Recents
+                        </h2>
+                    </div>
 
-            {/* Recents Section */}
-            <div className="flex-1 px-6 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-medium text-(--text-secondary)">
-                        Recents
-                    </h2>
+                    {/* Sessions List */}
+                    <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+                        {loading ? (
+                            <div className="text-[var(--text-muted)] text-sm py-4">
+                                Loading...
+                            </div>
+                        ) : sessions.length === 0 ? (
+                            <div className="text-[var(--text-muted)] text-sm py-4">
+                                Belum ada chat
+                            </div>
+                        ) : (
+                            sessions.map((session) => (
+                                <SessionItem
+                                    key={session.id}
+                                    session={session}
+                                    isActive={currentSessionId === session.id}
+                                    onSelect={() => onSelectSession?.(session.id)}
+                                    onRename={handleRename}
+                                    onDelete={handleDelete}
+                                />
+                            ))
+                        )}
+                    </div>
                 </div>
+            )}
 
-                {/* Sessions List */}
-                <div className="flex-1 overflow-y-auto space-y-1 pr-2">
-                    {loading ? (
-                        <div className="text-(--text-muted) text-sm py-4">
-                            Loading...
-                        </div>
-                    ) : sessions.length === 0 ? (
-                        <div className="text-(--text-muted) text-sm py-4">
-                            Belum ada chat
-                        </div>
-                    ) : (
-                        sessions.map((session) => (
-                            <SessionItem
-                                key={session.id}
-                                session={session}
-                                isActive={currentSessionId === session.id}
-                                onSelect={() => onSelectSession?.(session.id)}
-                                onRename={handleRename}
-                                onDelete={handleDelete}
-                            />
-                        ))
-                    )}
-                </div>
-            </div>
+            {/* Spacer when collapsed */}
+            {isCollapsed && <div className="flex-1" />}
 
             {/* User Section - Bottom */}
             {isLoggedIn && (
                 <div
-                    className="relative p-4 border-t border-(--border-color)/20"
-                    ref={menuRef}>
+                    className="relative p-4 border-t border-[var(--border-color)]/20"
+                    ref={menuRef}
+                >
                     {/* User Menu Popup */}
                     {showUserMenu && (
                         <div
-                            className="absolute bottom-full left-4 right-4 mb-2 bg-(--bg-tertiary) 
+                            className={`absolute bottom-full mb-2 bg-[var(--bg-tertiary)] 
                                         rounded-lg shadow-lg overflow-hidden animate-fadeIn
-                                        border border-(--border-color)/20">
+                                        border border-[var(--border-color)]/20
+                                        ${isCollapsed ? 'left-2 w-48' : 'left-4 right-4'}`}
+                        >
                             {/* Enrollment List - TOGGLE */}
                             <button
                                 onClick={handleEnrollmentListClick}
@@ -261,15 +320,21 @@ export default function Sidebar({
                     {/* User Info Button */}
                     <button
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="w-full flex items-center gap-3 p-2 rounded-lg 
-                                   hover:bg-(--bg-tertiary) transition-colors cursor-pointer">
-                        <div className="w-10 h-10 rounded-full bg-(--bg-tertiary) flex items-center justify-center">
+                        className={`w-full flex items-center gap-3 p-2 rounded-lg 
+                                   hover:bg-[var(--bg-tertiary)] transition-colors cursor-pointer
+                                   ${isCollapsed ? 'justify-center' : ''}`}
+                    >
+                        <div className="w-10 h-10 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0">
                             <span className="text-lg">👤</span>
                         </div>
-                        <span className="flex-1 text-left text-(--text-primary) text-sm truncate">
-                            {userEmail}
-                        </span>
-                        <IoMenu className="w-5 h-5 mx-2" />
+                        {!isCollapsed && (
+                            <>
+                                <span className="flex-1 text-left text-[var(--text-primary)] text-sm truncate">
+                                    {userEmail}
+                                </span>
+                                <IoMenu className="w-5 h-5 mx-2 flex-shrink-0" />
+                            </>
+                        )}
                     </button>
                 </div>
             )}
@@ -358,9 +423,9 @@ function SessionItem({
                             setIsRenaming(false);
                         }
                     }}
-                    className="w-full px-3 py-2.5 rounded-lg bg-(--bg-tertiary) 
-                               text-(--text-primary) text-sm outline-none
-                               border border-(--accent-primary)"
+                    className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-tertiary)] 
+                               text-[var(--text-primary)] text-sm outline-none
+                               border border-[var(--accent-primary)]"
                 />
             ) : (
                 <div
@@ -369,9 +434,10 @@ function SessionItem({
                                transition-colors flex items-center justify-between group
                                ${
                                    isActive
-                                       ? "bg-(--bg-tertiary) text-(--text-primary)"
-                                       : "text-(--text-primary) hover:bg-(--bg-tertiary)"
-                               }`}>
+                                       ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)]"
+                                       : "text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                               }`}
+                >
                     <span className="truncate flex-1 pr-2">
                         {session.label}
                     </span>
@@ -381,8 +447,9 @@ function SessionItem({
                             e.stopPropagation();
                             setShowMenu(!showMenu);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-3 rounded hover:bg-(--bg-card)
-                                   transition-opacity">
+                        className="opacity-0 group-hover:opacity-100 p-3 rounded hover:bg-[var(--bg-card)]
+                                   transition-opacity"
+                    >
                         <IoEllipsisVertical />
                     </button>
                 </div>
@@ -391,23 +458,26 @@ function SessionItem({
             {showMenu && (
                 <div
                     ref={menuRef}
-                    className="absolute right-0 top-full mt-1 w-40 bg-(--bg-tertiary) 
+                    className="absolute right-0 top-full mt-1 w-40 bg-[var(--bg-tertiary)] 
                                rounded-lg shadow-lg overflow-hidden z-50 animate-fadeIn
-                               border border-(--border-color)/20">
+                               border border-[var(--border-color)]/20"
+                >
                     <button
                         onClick={() => {
                             setIsRenaming(true);
                             setShowMenu(false);
                         }}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-(--text-primary)
-                                   hover:bg-(--bg-card) transition-colors">
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
+                                   hover:bg-[var(--bg-card)] transition-colors"
+                    >
                         <MdModeEdit />
                         <span>Rename</span>
                     </button>
                     <button
                         onClick={handleDeleteClick}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-(--text-primary)
-                                   hover:bg-(--bg-card) transition-colors">
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[var(--text-primary)]
+                                   hover:bg-[var(--bg-card)] transition-colors"
+                    >
                         <MdDelete />
                         <span>Delete</span>
                     </button>

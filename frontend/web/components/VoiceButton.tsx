@@ -57,11 +57,11 @@ export default function VoiceButton({
                     ${isActive 
                       ? 'bg-(--accent-primary) border-4 border-(--accent-primary) active:scale-95' 
                       : isConnecting
-                        ? 'bg-(--text-secondary) border-4 border-(--accent-primary) opacity-70'
+                        ? 'bg-(--text-secondary) border-4 border-(--accent-primary) active:scale-95 animate-pulse-ring'
                         : 'bg-(--text-secondary) border-3 border-(--accent-primary) hover:scale-105 hover:shadow-lg active:scale-95'
                     }`}
       >
-        {/* Icon changes based on state */}
+        
         {isConnecting ? (
           // Loading dots
           <div className="flex gap-1">

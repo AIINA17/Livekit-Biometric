@@ -297,9 +297,8 @@ export default function Sidebar({
                             {/* Enrollment List - TOGGLE */}
                             <button
                                 onClick={handleEnrollmentListClick}
-                                className="w-full px-4 py-3 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-                            >
+                                className="w-full px-4 py-3 flex items-center gap-3 text-(--text-secondary)
+                                           hover:bg-(--bg-card) transition-colors cursor-pointer">
                                 <PiUserSoundBold />
                                 <span className="text-sm">Enrollment List</span>
                             </button>
@@ -310,9 +309,8 @@ export default function Sidebar({
                                     onLogout();
                                     setShowUserMenu(false);
                                 }}
-                                className="w-full px-4 py-4 flex items-center gap-3 text-[var(--text-secondary)]
-                                           hover:bg-[var(--bg-card)] transition-colors cursor-pointer"
-                            >
+                                className="w-full px-4 py-4 flex items-center gap-3 text-(--text-secondary)
+                                           hover:bg-(--bg-card) transition-colors cursor-pointer">
                                 <LuLogOut />
                                 <span className="text-sm">Log out</span>
                             </button>

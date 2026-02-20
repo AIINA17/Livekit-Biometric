@@ -24,7 +24,29 @@ export default function VoiceButton({
 
   return (
     <div className="relative">
-      
+      {/* Pulse Ring Animation - When Speaking */}
+      {isSpeaking && (
+        <>
+          <div 
+            className="absolute inset-0 rounded-full bg-(--accent-primary)
+                       animate-pulse-ring opacity-30"
+          />
+          <div 
+            className="absolute inset-0 rounded-full bg-(--accent-primary)
+                       animate-pulse-ring opacity-20"
+            style={{ animationDelay: '0.5s' }}
+          />
+        </>
+      )}
+
+      {/* Connecting spinner ring */}
+      {isConnecting && (
+        <div 
+          className="absolute inset-0 rounded-full border-4 border-transparent 
+                     border-t-(--accent-primary) animate-spin"
+        />
+      )}
+
       {/* Main Button */}
       <button
         onClick={onClick}
@@ -51,7 +73,7 @@ export default function VoiceButton({
           
           <FaRegStopCircle className="--text-primary" size={30} />
         ) : (
-          // Mic icon when idle
+
           <Image
             src="/icons/Microphone.png"
             alt="Mic"
@@ -62,14 +84,6 @@ export default function VoiceButton({
           />
         )}
       </button>
-
-      {/* Label under button */}
-      <p className="text-center text-xs text-[var(--text-muted)] mt-2">
-        {isConnecting && 'Connecting...'}
-        {state === 'idle' && 'Tap to start'}
-        {state === 'connected' && 'Tap to end'}
-        {state === 'speaking' && 'Listening...'}
-      </p>
     </div>
   );
 }

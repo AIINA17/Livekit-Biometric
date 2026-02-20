@@ -240,7 +240,6 @@ export default function Sidebar({
                                 onClick={handleEnrollmentListClick}
                                 className="w-full px-4 py-3 flex items-center gap-3 text-(--text-secondary)
                                            hover:bg-(--bg-card) transition-colors cursor-pointer">
-
                                 <PiUserSoundBold />
                                 <span className="text-sm">Enrollment List</span>
                             </button>
@@ -253,7 +252,6 @@ export default function Sidebar({
                                 }}
                                 className="w-full px-4 py-4 flex items-center gap-3 text-(--text-secondary)
                                            hover:bg-(--bg-card) transition-colors cursor-pointer">
-
                                 <LuLogOut />
                                 <span className="text-sm">Log out</span>
                             </button>

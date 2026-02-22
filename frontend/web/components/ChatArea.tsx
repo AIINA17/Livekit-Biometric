@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FaMicrophone } from "react-icons/fa";
 import { IoChatbubblesOutline } from "react-icons/io5";
-import { MdShoppingBag } from "react-icons/md";
 import { Message, Product } from "@/types";
 import MessageBubble from "./MessageBubble";
 import ProductCards from "./ProductCards";
@@ -14,101 +13,105 @@ import SoundWave from "./SoundWave";
 import LiveKitControls from "./LiveKitControls";
 
 type ViewMode = "voice" | "chat";
+type VerificationStatus = "VERIFIED" | "REPEAT" | "DENIED" | null;
 
 interface ChatAreaProps {
-    messages: Message[];
-    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-    isConnected: boolean;
-    setIsConnected: (value: boolean) => void;
-    isTyping: boolean;
-    setIsTyping: (value: boolean) => void;
-    products: Product[];
-    isLoggedIn: boolean;
-    isSpeaking: boolean;
-    setIsSpeaking: (value: boolean) => void;
-    speakingRole: "user" | "agent" | null;
-    setSpeakingRole: (role: "user" | "agent" | null) => void;
-    token: string | null;
-    addMessage: (role: "user" | "assistant", text: string) => void;
-    onProductCards: (products: Product[]) => void;
-    setVerifyStatus: (status: string) => void;
-    setRoomStatus: (status: string) => void;
-    setScore: (score: number | null) => void;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  isConnected: boolean;
+  setIsConnected: (value: boolean) => void;
+  isTyping: boolean;
+  setIsTyping: (value: boolean) => void;
+  products: Product[];
+  isLoggedIn: boolean;
+  isSpeaking: boolean;
+  setIsSpeaking: (value: boolean) => void;
+  speakingRole: "user" | "agent" | null;
+  setSpeakingRole: (role: "user" | "agent" | null) => void;
+  token: string | null;
+  addMessage: (role: "user" | "assistant", text: string) => void;
+  onProductCards: (products: Product[]) => void;
+  setVerifyStatus: (status: string) => void;
+  setRoomStatus: (status: string) => void;
+  setScore: (score: number | null) => void;
+  onVerificationResult?: (
+    status: VerificationStatus,
+    score: number | null,
+    reason: string | null,
+  ) => void;
 }
 
 export default function ChatArea({
-    messages,
-    isConnected,
-    setIsConnected,
-    isTyping,
-    setIsTyping,
-    products,
-    isSpeaking,
-    setIsSpeaking,
-    token,
-    addMessage,
-    onProductCards,
-    setVerifyStatus,
-    setRoomStatus,
-    setScore,
+  messages,
+  isConnected,
+  setIsConnected,
+  isTyping,
+  setIsTyping,
+  products,
+  isSpeaking,
+  setIsSpeaking,
+  token,
+  addMessage,
+  onProductCards,
+  setVerifyStatus,
+  setRoomStatus,
+  setScore,
+  onVerificationResult,
 }: ChatAreaProps) {
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>("voice");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("voice");
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-    useEffect(() => {
-        if (viewMode === "chat") {
-            scrollToBottom();
-        }
-    }, [messages, isTyping, viewMode]);
+  useEffect(() => {
+    if (viewMode === "chat") {
+      scrollToBottom();
+    }
+  }, [messages, isTyping, viewMode]);
 
-    return (
-        <div className="flex-1 flex h-screen bg-(--bg-primary) overflow-hidden">
-
-            {/* ====== LEFT: Main Content Area ====== */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Scrollable content */}
-                <div className="flex-1 overflow-y-auto">
-                    {viewMode === "voice" ? (
-                        <VoiceModeView isSpeaking={isSpeaking} />
-                    ) : (
-                        <ChatModeView
-                            messages={messages}
-                            isTyping={isTyping}
-                            messagesEndRef={messagesEndRef}
-                        />
-                    )}
-                </div>
-
-                <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
-                    <ModeToggle
-                        currentMode={viewMode}
-                        onModeChange={setViewMode}
-                    />
-                    <LiveKitControls
-                        token={token}
-                        isSpeaking={isSpeaking}
-                        isConnected={isConnected}
-                        setIsSpeaking={setIsSpeaking}
-                        setIsConnected={setIsConnected}
-                        setRoomStatus={setRoomStatus}
-                        setVerifyStatus={setVerifyStatus}
-                        setScore={setScore}
-                        setIsAgentSpeaking={setIsSpeaking}
-                        addMessage={addMessage}
-                        onProductCards={onProductCards}
-                        setIsTyping={setIsTyping}
-                    />
-                </div>
-            </div>
-
-            {/* ====== RIGHT: Product Sidebar ====== */}
-            <ProductSidebar products={products} />
+  return (
+    <div className="flex-1 flex h-screen bg-(--bg-primary) overflow-hidden">
+      {/* ====== LEFT: Main Content Area ====== */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+          {viewMode === "voice" ? (
+            <VoiceModeView isSpeaking={isSpeaking} />
+          ) : (
+            <ChatModeView
+              messages={messages}
+              isTyping={isTyping}
+              messagesEndRef={messagesEndRef}
+            />
+          )}
         </div>
-    );
+
+        <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
+          <ModeToggle currentMode={viewMode} onModeChange={setViewMode} />
+          <LiveKitControls
+            token={token}
+            isSpeaking={isSpeaking}
+            isConnected={isConnected}
+            setIsSpeaking={setIsSpeaking}
+            setIsConnected={setIsConnected}
+            setRoomStatus={setRoomStatus}
+            setVerifyStatus={setVerifyStatus}
+            setScore={setScore}
+            setIsAgentSpeaking={setIsSpeaking}
+            addMessage={addMessage}
+            onProductCards={onProductCards}
+            setIsTyping={setIsTyping}
+            onVerificationResult={onVerificationResult}
+          />
+        </div>
+      </div>
+
+      {/* ====== RIGHT: Product Sidebar ====== */}
+      <ProductSidebar products={products} />
+    </div>
+  );
 }
 
 /* ========================================
@@ -116,29 +119,31 @@ PRODUCT SIDEBAR
 ======================================== */
 
 interface ProductSidebarProps {
-    products: Product[];
+  products: Product[];
 }
 
 function ProductSidebar({ products }: ProductSidebarProps) {
-    return (
-        <div
-            className={`
+  return (
+    <div
+      className={`
                 flex flex-col border-l border-(--bg-tertiary) bg-(--bg-secondary)
                 transition-all duration-300 ease-in-out
-                ${products.length > 0 
-                    ? "w-160 opacity-100" 
-                    : "w-0 opacity-0 overflow-hidden border-l-0"}
+                ${
+                  products.length > 0
+                    ? "w-160 opacity-100"
+                    : "w-0 opacity-0 overflow-hidden border-l-0"
+                }
             `}
-        >
-            {products.length > 0 && (
-                <>
-                    <div className="flex-1 overflow-y-auto p-3">
-                        <ProductCards products={products} />
-                    </div>
-                </>
-            )}
-        </div>
-    );
+    >
+      {products.length > 0 && (
+        <>
+          <div className="flex-1 overflow-y-auto p-3">
+            <ProductCards products={products} />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 /* ========================================
@@ -146,38 +151,40 @@ MODE TOGGLE COMPONENT
 ======================================== */
 
 interface ModeToggleProps {
-    currentMode: ViewMode;
-    onModeChange: (mode: ViewMode) => void;
+  currentMode: ViewMode;
+  onModeChange: (mode: ViewMode) => void;
 }
 
 function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
-    return (
-        <div className="flex items-center gap-2 p-1 mt-3 rounded-full bg-(--bg-tertiary)">
-            <button
-                onClick={() => onModeChange("voice")}
-                className={`p-2.5 rounded-full transition-all duration-200
-                    ${currentMode === "voice"
+  return (
+    <div className="flex items-center gap-2 p-1 mt-3 rounded-full bg-(--bg-tertiary)">
+      <button
+        onClick={() => onModeChange("voice")}
+        className={`p-2.5 rounded-full transition-all duration-200
+                    ${
+                      currentMode === "voice"
                         ? "bg-(--accent-primary) text-(--text-primary) shadow-sm"
                         : "text-(--text-muted) hover:text-(--text-secondary) cursor-pointer"
                     }`}
-                title="Voice Mode"
-            >
-                <FaMicrophone size={16} />
-            </button>
+        title="Voice Mode"
+      >
+        <FaMicrophone size={16} />
+      </button>
 
-            <button
-                onClick={() => onModeChange("chat")}
-                className={`p-2.5 rounded-full transition-all duration-200
-                    ${currentMode === "chat"
+      <button
+        onClick={() => onModeChange("chat")}
+        className={`p-2.5 rounded-full transition-all duration-200
+                    ${
+                      currentMode === "chat"
                         ? "bg-(--accent-primary) text-(--text-primary) shadow-sm"
                         : "text-(--text-muted) hover:text-(--text-secondary) cursor-pointer"
                     }`}
-                title="Chat Mode"
-            >
-                <IoChatbubblesOutline size={20} />
-            </button>
-        </div>
-    );
+        title="Chat Mode"
+      >
+        <IoChatbubblesOutline size={20} />
+      </button>
+    </div>
+  );
 }
 
 /* ========================================
@@ -185,38 +192,38 @@ function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
 ======================================== */
 
 interface VoiceModeViewProps {
-    isSpeaking: boolean;
+  isSpeaking: boolean;
 }
 
 function VoiceModeView({ isSpeaking }: VoiceModeViewProps) {
-    return (
-        <div className="h-full flex flex-col items-center justify-center p-8">
-            <h1 className="font-outfit text-5xl font-bold text-(--accent-primary) mb-4">
-                Happy
-            </h1>
+  return (
+    <div className="h-full flex flex-col items-center justify-center p-8">
+      <h1 className="font-outfit text-5xl font-bold text-(--accent-primary) mb-4">
+        Happy
+      </h1>
 
-            <p className="font-space text-xl text-(--text-primary) mb-8">
-                Your personal shopping assistant
-            </p>
+      <p className="font-space text-xl text-(--text-primary) mb-8">
+        Your personal shopping assistant
+      </p>
 
-            <div className="relative w-56 h-56 mb-6">
-                <Image
-                    src="/icons/Happy_Warna.png"
-                    alt="Happy Mascot"
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, 224px"
-                    priority
-                />
-            </div>
+      <div className="relative w-56 h-56 mb-6">
+        <Image
+          src="/icons/Happy_Warna.png"
+          alt="Happy Mascot"
+          fill
+          className="object-contain"
+          sizes="(max-width: 768px) 100vw, 224px"
+          priority
+        />
+      </div>
 
-            {isSpeaking && (
-                <div className="mb-6">
-                    <SoundWave />
-                </div>
-            )}
+      {isSpeaking && (
+        <div className="mb-6">
+          <SoundWave />
         </div>
-    );
+      )}
+    </div>
+  );
 }
 
 /* ========================================
@@ -224,38 +231,37 @@ function VoiceModeView({ isSpeaking }: VoiceModeViewProps) {
 ======================================== */
 
 interface ChatModeViewProps {
-    messages: Message[];
-    isTyping: boolean;
-    messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  messages: Message[];
+  isTyping: boolean;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
-function ChatModeView({ messages, isTyping, messagesEndRef }: ChatModeViewProps) {
-    if (messages.length === 0) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center p-8">
-                <IoChatbubblesOutline
-                    size={64}
-                    className="text-(--text-muted) mb-4"
-                />
-                <p className="text-(--text-muted) text-lg">
-                    Belum ada pesan
-                </p>
-                <p className="text-(--text-muted) text-sm mt-2">
-                    Mulai percakapan dengan menekan tombol mic
-                </p>
-            </div>
-        );
-    }
-
+function ChatModeView({
+  messages,
+  isTyping,
+  messagesEndRef,
+}: ChatModeViewProps) {
+  if (messages.length === 0) {
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-4">
-            {messages.map((msg, idx) => (
-                <MessageBubble key={idx} message={msg} />
-            ))}
-
-            {isTyping && <TypingIndicator />}
-
-            <div ref={messagesEndRef} />
-        </div>
+      <div className="h-full flex flex-col items-center justify-center p-8">
+        <IoChatbubblesOutline size={64} className="text-(--text-muted) mb-4" />
+        <p className="text-(--text-muted) text-lg">Belum ada pesan</p>
+        <p className="text-(--text-muted) text-sm mt-2">
+          Mulai percakapan dengan menekan tombol mic
+        </p>
+      </div>
     );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-4">
+      {messages.map((msg, idx) => (
+        <MessageBubble key={idx} message={msg} />
+      ))}
+
+      {isTyping && <TypingIndicator />}
+
+      <div ref={messagesEndRef} />
+    </div>
+  );
 }

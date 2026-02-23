@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 interface StatusDisplayProps {
   verifyStatus: string;
@@ -6,13 +6,17 @@ interface StatusDisplayProps {
   score: number | null;
 }
 
-export default function StatusDisplay({ verifyStatus, roomStatus, score }: StatusDisplayProps) {
+export default function StatusDisplay({
+  verifyStatus,
+  roomStatus,
+  score,
+}: StatusDisplayProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="text-[0.8rem] font-semibold text-gray-500 uppercase tracking-wide mb-1">
         Status Verifikasi
       </div>
-      
+
       <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-3 text-sm text-gray-700">
         {verifyStatus}
       </div>

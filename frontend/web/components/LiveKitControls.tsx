@@ -5,15 +5,10 @@ import React, { useEffect } from "react";
 import { useLiveKit } from "@/hooks/useLiveKit";
 import { Product } from "@/types";
 import VoiceButton from "./VoiceButton";
-import SoundWave from "./SoundWave";
-
-type VerificationStatus = "VERIFIED" | "REPEAT" | "DENIED" | null;
 
 interface LiveKitControlsProps {
   token: string | null;
   isConnected: boolean;
-  isSpeaking: boolean;
-  setIsSpeaking: (value: boolean) => void;
   setIsConnected: (value: boolean) => void;
   setRoomStatus: (status: string) => void;
   setVerifyStatus: (status: string) => void;
@@ -22,16 +17,11 @@ interface LiveKitControlsProps {
   addMessage: (role: "user" | "assistant", text: string) => void;
   onProductCards: (products: Product[]) => void;
   setIsTyping: (value: boolean) => void;
-  onVerificationResult?: (
-    status: VerificationStatus,
-    score: number | null,
-    reason: string | null,
-  ) => void;
 }
 
 export default function LiveKitControls({
   token,
-  setIsSpeaking,
+  isConnected,
   setIsConnected,
   setRoomStatus,
   setVerifyStatus,
@@ -40,12 +30,12 @@ export default function LiveKitControls({
   addMessage,
   onProductCards,
   setIsTyping,
-  onVerificationResult,
 }: LiveKitControlsProps) {
   const {
     toggleRoom,
     uiState,
     isConnected: hookIsConnected,
+    isAgentSpeaking,
   } = useLiveKit({
     token,
     onMessage: addMessage,
@@ -53,7 +43,6 @@ export default function LiveKitControls({
     onVerifyStatus: setVerifyStatus,
     onRoomStatus: setRoomStatus,
     onScore: setScore,
-    onVerificationResult,
   });
 
   /* ================= SYNC STATE ================= */
@@ -66,14 +55,10 @@ export default function LiveKitControls({
     setIsTyping(uiState === "RECORDING" || uiState === "VERIFYING");
   }, [uiState, setIsTyping]);
 
+  // Sync agent speaking state from LiveKit hook (based on ActiveSpeakersChanged)
   useEffect(() => {
-    setIsAgentSpeaking(uiState === "CHATTING");
-  }, [uiState, setIsAgentSpeaking]);
-
-  useEffect(() => {
-    // Set isSpeaking based on recording state
-    setIsSpeaking(uiState === "RECORDING" || uiState === "LISTENING");
-  }, [uiState, setIsSpeaking]);
+    setIsAgentSpeaking(isAgentSpeaking);
+  }, [isAgentSpeaking, setIsAgentSpeaking]);
 
   /* ================= GET BUTTON STATE ================= */
 
@@ -136,14 +121,11 @@ export default function LiveKitControls({
 
   return (
     <div className="space-y-4 justify-center items-center flex flex-col">
-      {/* Sound Wave - Show when speaking */}
-      {(uiState === "RECORDING" || uiState === "LISTENING") && <SoundWave />}
-
       {/* Voice Button - Always visible, changes based on state */}
       <VoiceButton state={getButtonState()} onClick={toggleRoom} />
 
       {/* Status Display */}
-      <div className="flex items-center justify-center gap-2 mb-3">
+      <div className="flex items-center justify-center gap-2">
         <div
           className={`w-2 h-2 rounded-full ${
             uiState === "CHATTING"
@@ -151,13 +133,13 @@ export default function LiveKitControls({
               : uiState === "RECORDING" ||
                   uiState === "VERIFYING" ||
                   uiState === "LISTENING"
-                ? "bg-(--accent-primary) animate-pulse"
+                ? "bg-[var(--accent-primary)] animate-pulse"
                 : uiState === "CONNECTING"
                   ? "bg-yellow-500 animate-pulse"
-                  : "bg-(--text-muted)"
+                  : "bg-[var(--text-muted)]"
           }`}
         />
-        <span className={`text-md ${getStatusColor()}`}>{getStatusText()}</span>
+        <span className={`text-sm ${getStatusColor()}`}>{getStatusText()}</span>
       </div>
     </div>
   );

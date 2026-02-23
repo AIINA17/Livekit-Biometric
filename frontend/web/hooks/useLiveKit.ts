@@ -46,6 +46,7 @@ export function useLiveKit({
   const rafRef = useRef<number | null>(null);
 
   const [uiState, setUiState] = useState<UiState>("IDLE");
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false); // ✅ NEW: Track when agent is speaking
 
   const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL!;
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL!;
@@ -103,6 +104,7 @@ export function useLiveKit({
         isJoiningRef.current = false;
         onRoomStatus("🔌 Disconnected");
         setUiState("IDLE");
+        setIsAgentSpeaking(false); // ✅ Reset when disconnected
         roomRef.current = null;
       });
 
@@ -110,12 +112,41 @@ export function useLiveKit({
         handleAgentData(payload, topic);
       });
 
-      room.on(RoomEvent.TrackSubscribed, (track) => {
+      // ✅ Track when agent audio starts/stops
+      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach();
           document.body.appendChild(el);
           el.play().catch(() => {});
+
+          // ✅ Agent started speaking
+          setIsAgentSpeaking(true);
+
+          // ✅ Listen for when audio ends
+          el.onended = () => {
+            setIsAgentSpeaking(false);
+          };
+
+          el.onpause = () => {
+            setIsAgentSpeaking(false);
+          };
         }
+      });
+
+      // ✅ Track when agent audio is unsubscribed
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          setIsAgentSpeaking(false);
+        }
+      });
+
+      // ✅ Use ActiveSpeakersChanged event - most reliable for detecting speech
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        // Check if any remote participant (agent) is speaking
+        const agentSpeaking = speakers.some(
+          (speaker) => speaker.identity !== room.localParticipant.identity,
+        );
+        setIsAgentSpeaking(agentSpeaking);
       });
 
       await room.connect(LIVEKIT_URL, lkToken);
@@ -151,6 +182,7 @@ export function useLiveKit({
 
     isJoiningRef.current = false;
     setUiState("IDLE");
+    setIsAgentSpeaking(false); // ✅ Reset
     onRoomStatus("🔌 Disconnected");
   }, [onRoomStatus]);
 
@@ -339,5 +371,6 @@ export function useLiveKit({
     toggleRoom,
     uiState,
     isConnected,
+    isAgentSpeaking, // ✅ NEW: Export this
   };
 }

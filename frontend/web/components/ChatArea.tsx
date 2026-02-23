@@ -92,9 +92,7 @@ export default function ChatArea({
           <ModeToggle currentMode={viewMode} onModeChange={setViewMode} />
           <LiveKitControls
             token={token}
-            isSpeaking={isSpeaking}
             isConnected={isConnected}
-            setIsSpeaking={setIsSpeaking}
             setIsConnected={setIsConnected}
             setRoomStatus={setRoomStatus}
             setVerifyStatus={setVerifyStatus}
@@ -103,7 +101,6 @@ export default function ChatArea({
             addMessage={addMessage}
             onProductCards={onProductCards}
             setIsTyping={setIsTyping}
-            onVerificationResult={onVerificationResult}
           />
         </div>
       </div>

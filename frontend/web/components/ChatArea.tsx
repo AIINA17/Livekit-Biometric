@@ -4,7 +4,12 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FaMicrophone } from "react-icons/fa";
-import { IoChatbubblesOutline } from "react-icons/io5";
+import {
+  IoChatbubblesOutline,
+  IoChevronForward,
+  IoChevronBack,
+} from "react-icons/io5";
+import { HiShoppingBag } from "react-icons/hi2";
 import { Message, Product } from "@/types";
 import MessageBubble from "./MessageBubble";
 import ProductCards from "./ProductCards";
@@ -13,7 +18,6 @@ import SoundWave from "./SoundWave";
 import LiveKitControls from "./LiveKitControls";
 
 type ViewMode = "voice" | "chat";
-type VerificationStatus = "VERIFIED" | "REPEAT" | "DENIED" | null;
 
 interface ChatAreaProps {
   messages: Message[];
@@ -34,11 +38,7 @@ interface ChatAreaProps {
   setVerifyStatus: (status: string) => void;
   setRoomStatus: (status: string) => void;
   setScore: (score: number | null) => void;
-  onVerificationResult?: (
-    status: VerificationStatus,
-    score: number | null,
-    reason: string | null,
-  ) => void;
+  isViewingHistory?: boolean; // ✅ NEW: Flag untuk history mode
 }
 
 export default function ChatArea({
@@ -56,20 +56,24 @@ export default function ChatArea({
   setVerifyStatus,
   setRoomStatus,
   setScore,
-  onVerificationResult,
+  isViewingHistory = false, // ✅ Default false
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("voice");
+  const [isProductSidebarOpen, setIsProductSidebarOpen] = useState(true); // ✅ NEW: Product sidebar toggle
+
+  // ✅ Detect if viewing history (has messages but not connected)
+  const isHistoryMode = messages.length > 0 && !isConnected;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    if (viewMode === "chat") {
+    if (viewMode === "chat" || isHistoryMode) {
       scrollToBottom();
     }
-  }, [messages, isTyping, viewMode]);
+  }, [messages, isTyping, viewMode, isHistoryMode]);
 
   return (
     <div className="flex-1 flex h-screen bg-(--bg-primary) overflow-hidden">
@@ -77,9 +81,18 @@ export default function ChatArea({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
-          {viewMode === "voice" ? (
+          {isHistoryMode ? (
+            // ✅ HISTORY MODE: Only show chat messages
+            <HistoryModeView
+              messages={messages}
+              isTyping={isTyping}
+              messagesEndRef={messagesEndRef}
+            />
+          ) : viewMode === "voice" ? (
+            // VOICE MODE: Show Happy mascot
             <VoiceModeView isSpeaking={isSpeaking} />
           ) : (
+            // CHAT MODE: Show chat messages
             <ChatModeView
               messages={messages}
               isTyping={isTyping}
@@ -88,67 +101,99 @@ export default function ChatArea({
           )}
         </div>
 
-        <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
-          <ModeToggle currentMode={viewMode} onModeChange={setViewMode} />
-          <LiveKitControls
-            token={token}
-            isSpeaking={isSpeaking}
-            isConnected={isConnected}
-            setIsSpeaking={setIsSpeaking}
-            setIsConnected={setIsConnected}
-            setRoomStatus={setRoomStatus}
-            setVerifyStatus={setVerifyStatus}
-            setScore={setScore}
-            setIsAgentSpeaking={setIsSpeaking}
-            addMessage={addMessage}
-            onProductCards={onProductCards}
-            setIsTyping={setIsTyping}
-            onVerificationResult={onVerificationResult}
-          />
-        </div>
+        {/* ✅ Bottom controls - HIDE when viewing history */}
+        {!isHistoryMode && (
+          <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
+            <ModeToggle currentMode={viewMode} onModeChange={setViewMode} />
+            <LiveKitControls
+              token={token}
+              isConnected={isConnected}
+              setIsConnected={setIsConnected}
+              setRoomStatus={setRoomStatus}
+              setVerifyStatus={setVerifyStatus}
+              setScore={setScore}
+              setIsAgentSpeaking={setIsSpeaking}
+              addMessage={addMessage}
+              onProductCards={onProductCards}
+              setIsTyping={setIsTyping}
+            />
+          </div>
+        )}
       </div>
 
-      {/* ====== RIGHT: Product Sidebar ====== */}
-      <ProductSidebar products={products} />
+      {/* ====== RIGHT: Product Sidebar (Collapsible) ====== */}
+      <ProductSidebar
+        products={products}
+        isOpen={isProductSidebarOpen}
+        onToggle={() => setIsProductSidebarOpen((prev) => !prev)}
+      />
     </div>
   );
 }
 
-/* ========================================
-PRODUCT SIDEBAR
-======================================== */
-
 interface ProductSidebarProps {
   products: Product[];
+  isOpen: boolean;
+  onToggle: () => void;
 }
 
-function ProductSidebar({ products }: ProductSidebarProps) {
+function ProductSidebar({ products, isOpen, onToggle }: ProductSidebarProps) {
+  const hasProducts = products.length > 0;
+
+  // Don't render anything if no products
+  if (!hasProducts) return null;
+
   return (
-    <div
-      className={`
-                flex flex-col border-l border-(--bg-tertiary) bg-(--bg-secondary)
-                transition-all duration-300 ease-in-out
-                ${
-                  products.length > 0
-                    ? "w-160 opacity-100"
-                    : "w-0 opacity-0 overflow-hidden border-l-0"
-                }
-            `}
-    >
-      {products.length > 0 && (
-        <>
-          <div className="flex-1 overflow-y-auto p-3">
-            <ProductCards products={products} />
-          </div>
-        </>
+    <div className="relative flex">
+      {/* Sidebar Content */}
+      <div
+        className={`
+          flex flex-col border-l border-(--bg-tertiary) bg-(--bg-secondary)
+          transition-all duration-300 ease-in-out
+          ${isOpen ? "w-80 opacity-100" : "w-0 opacity-0 overflow-hidden border-l-0"}
+        `}
+      >
+        {isOpen && (
+          <>
+            {/* Header */}
+            <button
+              onClick={onToggle}
+              className="w-full p-4 border-b border-(--bg-tertiary)
+                        flex items-center justify-between
+                        hover:bg--(--bg-tertiary) transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-(--text-primary)">
+                <HiShoppingBag size={18} className="text-(--accent-primary)" />
+                <span>{products.length} Produk</span>
+              </div>
+              <IoChevronForward size={16} className="text-(--text-muted)" />
+            </button>
+
+            {/* Products */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <ProductCards products={products} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Collapsed indicator (when closed but has products) */}
+      {!isOpen && hasProducts && (
+        <div
+          onClick={onToggle}
+          className="w-12 h-full flex flex-col items-center justify-center
+                     border-l border-(--bg-tertiary) bg-(--bg-secondary)
+                     cursor-pointer hover:bg-(--bg-tertiary) transition-colors"
+        >
+          <HiShoppingBag size={20} className="text-(--accent-primary)" />
+          <span className="text-xs text-(--text-muted) writing-mode-vertical">
+            {products.length}
+          </span>
+        </div>
       )}
     </div>
   );
 }
-
-/* ========================================
-MODE TOGGLE COMPONENT
-======================================== */
 
 interface ModeToggleProps {
   currentMode: ViewMode;
@@ -187,10 +232,6 @@ function ModeToggle({ currentMode, onModeChange }: ModeToggleProps) {
   );
 }
 
-/* ========================================
-   VOICE MODE VIEW (no products here)
-======================================== */
-
 interface VoiceModeViewProps {
   isSpeaking: boolean;
 }
@@ -226,10 +267,6 @@ function VoiceModeView({ isSpeaking }: VoiceModeViewProps) {
   );
 }
 
-/* ========================================
-   CHAT MODE VIEW
-======================================== */
-
 interface ChatModeViewProps {
   messages: Message[];
   isTyping: boolean;
@@ -254,7 +291,7 @@ function ChatModeView({
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-4">
+    <div className="w-full px-6 py-4 space-y-4">
       {messages.map((msg, idx) => (
         <MessageBubble key={idx} message={msg} />
       ))}
@@ -262,6 +299,44 @@ function ChatModeView({
       {isTyping && <TypingIndicator />}
 
       <div ref={messagesEndRef} />
+    </div>
+  );
+}
+
+interface HistoryModeViewProps {
+  messages: Message[];
+  isTyping: boolean;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function HistoryModeView({
+  messages,
+  isTyping,
+  messagesEndRef,
+}: HistoryModeViewProps) {
+  return (
+    <div className="h-full flex flex-col">
+      {/* History Header */}
+      <div className="p-4 border-b border-(--bg-tertiary) bg-(--bg-secondary)">
+        <div className="flex items-center gap-2 text-sm text-(--text-secondary)">
+          <IoChatbubblesOutline size={16} />
+          <span>Chat History</span>
+          <span className="text-(--text-muted)">• {messages.length} pesan</span>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="w-full px-6 py-4 space-y-4">
+          {messages.map((msg, idx) => (
+            <MessageBubble key={idx} message={msg} />
+          ))}
+
+          {isTyping && <TypingIndicator />}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
     </div>
   );
 }

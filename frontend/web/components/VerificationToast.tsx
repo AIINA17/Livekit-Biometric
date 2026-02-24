@@ -28,7 +28,7 @@ export default function VerificationToast({
       // Auto-hide after 5 seconds
       const timer = setTimeout(() => {
         setIsVisible(false);
-        setTimeout(onClose, 300); // Wait for animation to finish
+        setTimeout(onClose, 300);
       }, 5000);
 
       return () => clearTimeout(timer);
@@ -60,13 +60,11 @@ export default function VerificationToast({
 
   const currentConfig = config[status];
 
-  // Format score as percentage
   const scoreText =
     score !== null && score !== undefined
       ? `Similarity: ${(score * 100).toFixed(1)}%`
       : null;
 
-  // Use reason from backend, or fallback to default
   const displayReason = reason || getDefaultReason(status);
 
   return (

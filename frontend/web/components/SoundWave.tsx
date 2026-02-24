@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
 interface SoundWaveProps {
-  variant?: 'default' | 'small';
+  variant?: "default" | "small";
   color?: string;
 }
 
-export default function SoundWave({ 
-  variant = 'default',
-  color = 'var(--accent-primary)' 
+export default function SoundWave({
+  variant = "default",
+  color = "var(--accent-primary)",
 }: SoundWaveProps) {
-  const barCount = variant === 'small' ? 5 : 7;
-  const heights = variant === 'small' 
-    ? ['h-2', 'h-4', 'h-6', 'h-4', 'h-2']
-    : ['h-3', 'h-5', 'h-8', 'h-6', 'h-8', 'h-5', 'h-3'];
+  const barCount = variant === "small" ? 5 : 7;
+  const heights =
+    variant === "small"
+      ? ["h-2", "h-4", "h-6", "h-4", "h-2"]
+      : ["h-3", "h-5", "h-8", "h-6", "h-8", "h-5", "h-3"];
 
   return (
     <div className="flex items-center justify-center gap-1 h-8">
@@ -23,7 +24,7 @@ export default function SoundWave({
           style={{
             backgroundColor: color,
             animationDelay: `${index * 0.1}s`,
-            height: '8px', 
+            height: "8px",
           }}
         />
       ))}
@@ -31,7 +32,7 @@ export default function SoundWave({
   );
 }
 
-export function SoundWaveAnimated({ color = '#D97757' }: { color?: string }) {
+export function SoundWaveAnimated({ color = "#D97757" }: { color?: string }) {
   return (
     <div className="flex items-end justify-center gap-0.75 h-8">
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
@@ -48,10 +49,9 @@ export function SoundWaveAnimated({ color = '#D97757' }: { color?: string }) {
   );
 }
 
-
-export function SoundWaveStatic({ color = '#D97757' }: { color?: string }) {
+export function SoundWaveStatic({ color = "#D97757" }: { color?: string }) {
   const heights = [8, 16, 24, 20, 24, 16, 8];
-  
+
   return (
     <div className="flex items-end justify-center gap-0.75 h-8">
       {heights.map((height, i) => (

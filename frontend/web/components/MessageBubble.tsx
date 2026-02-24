@@ -40,7 +40,7 @@ export default function MessageBubble({
         </div>
 
         <div
-          className={`px-4 py-3 rounded-2xl max-w-4xl break-words ${
+          className={`px-4 py-3 rounded-2xl max-w-4xl wrap-break-words ${
             isUser
               ? "bg-(--accent-primary) text-(--text-primary) rounded-br-md"
               : "bg-(--bubble-agent) text-(--text-primary) rounded-bl-md"

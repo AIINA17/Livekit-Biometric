@@ -423,9 +423,6 @@ export default function VoiceEnrollment({
   );
 }
 
-/* =========================
-   Voice Item
-========================= */
 interface VoiceItemProps {
   voice: VoiceProfile;
   isEditing: boolean;

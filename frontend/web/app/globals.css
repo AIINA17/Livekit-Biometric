@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #1F1E1D;
+  --bg-primary: #1f1e1d;
   --bg-secondary: #252624;
-  --bg-tertiary: #30302E;
-  --bg-card: #30302E;
-  --text-primary: #FFFFFF;
-  --text-secondary: #C2C0B6;
-  --text-muted: #5C5C5C;
+  --bg-tertiary: #30302e;
+  --bg-card: #30302e;
+  --text-primary: #ffffff;
+  --text-secondary: #c2c0b6;
+  --text-muted: #5c5c5c;
   --text-white-70: rgba(255, 255, 255, 0.7);
   --text-white-50: rgba(255, 255, 255, 0.5);
-  --accent-primary: #4598C5;
-  --accent-link: #4598C5;
-  --border-color: #5C5C5C;
-  --input-bg: #5C5C5C;
-  --bubble-user: #30302E;
+  --accent-primary: #4598c5;
+  --accent-link: #4598c5;
+  --border-color: #5c5c5c;
+  --input-bg: #5c5c5c;
+  --bubble-user: #30302e;
   --bubble-agent: #252624;
 }
 
@@ -25,35 +25,71 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Outfit', sans-serif;
+  font-family: "Outfit", sans-serif;
 }
 
-.font-outfit { font-family: 'Outfit', sans-serif; }
-.font-space { font-family: 'Space Grotesk', sans-serif; }
+.font-outfit {
+  font-family: "Outfit", sans-serif;
+}
+.font-space {
+  font-family: "Space Grotesk", sans-serif;
+}
 
 /* Scrollbar */
-*::-webkit-scrollbar { width: 6px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: #5C5C5C; border-radius: 10px; }
+*::-webkit-scrollbar {
+  width: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #5c5c5c;
+  border-radius: 10px;
+}
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
 
 @keyframes typing {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
-.animate-typing { animation: typing 1.4s ease-in-out infinite; }
+.animate-typing {
+  animation: typing 1.4s ease-in-out infinite;
+}
 
 @keyframes soundwave {
-  0%, 100% { height: 8px; }
-  50% { height: 24px; }
+  0%,
+  100% {
+    height: 8px;
+  }
+  50% {
+    height: 24px;
+  }
 }
-.animate-soundwave { animation: soundwave 0.8s ease-in-out infinite; }
+.animate-soundwave {
+  animation: soundwave 0.8s ease-in-out infinite;
+}
 
 .soundwave-bar {
   width: 4px;
@@ -61,24 +97,50 @@ body {
   border-radius: 2px;
   animation: soundwave 0.8s ease-in-out infinite;
 }
-.soundwave-bar:nth-child(1) { animation-delay: 0s; }
-.soundwave-bar:nth-child(2) { animation-delay: 0.1s; }
-.soundwave-bar:nth-child(3) { animation-delay: 0.2s; }
-.soundwave-bar:nth-child(4) { animation-delay: 0.3s; }
-.soundwave-bar:nth-child(5) { animation-delay: 0.4s; }
-.soundwave-bar:nth-child(6) { animation-delay: 0.3s; }
-.soundwave-bar:nth-child(7) { animation-delay: 0.2s; }
+.soundwave-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+.soundwave-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.soundwave-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.soundwave-bar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.soundwave-bar:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.soundwave-bar:nth-child(6) {
+  animation-delay: 0.3s;
+}
+.soundwave-bar:nth-child(7) {
+  animation-delay: 0.2s;
+}
 
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(1.5); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
-.animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
 
 .modal-backdrop {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
 }
 
-input::placeholder { color: rgba(255,255,255,0.5); }
-input:focus { outline: none; }
+input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+input:focus {
+  outline: none;
+}

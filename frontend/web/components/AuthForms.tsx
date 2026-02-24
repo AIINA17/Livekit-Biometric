@@ -1,4 +1,3 @@
-// ========== components/AuthForms.tsx ==========
 "use client";
 
 import { FormEvent, useState } from "react";

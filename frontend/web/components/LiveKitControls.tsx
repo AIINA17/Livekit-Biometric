@@ -45,8 +45,6 @@ export default function LiveKitControls({
     onScore: setScore,
   });
 
-  /* ================= SYNC STATE ================= */
-
   useEffect(() => {
     setIsConnected(hookIsConnected);
   }, [hookIsConnected, setIsConnected]);
@@ -55,12 +53,9 @@ export default function LiveKitControls({
     setIsTyping(uiState === "RECORDING" || uiState === "VERIFYING");
   }, [uiState, setIsTyping]);
 
-  // Sync agent speaking state from LiveKit hook (based on ActiveSpeakersChanged)
   useEffect(() => {
     setIsAgentSpeaking(isAgentSpeaking);
   }, [isAgentSpeaking, setIsAgentSpeaking]);
-
-  /* ================= GET BUTTON STATE ================= */
 
   const getButtonState = ():
     | "idle"
@@ -82,8 +77,6 @@ export default function LiveKitControls({
         return "idle";
     }
   };
-
-  /* ================= UI STATUS ================= */
 
   const getStatusText = () => {
     switch (uiState) {
@@ -117,8 +110,6 @@ export default function LiveKitControls({
     }
   };
 
-  /* ================= RENDER ================= */
-
   return (
     <div className="space-y-4 justify-center items-center flex flex-col">
       {/* Voice Button - Always visible, changes based on state */}
@@ -133,10 +124,10 @@ export default function LiveKitControls({
               : uiState === "RECORDING" ||
                   uiState === "VERIFYING" ||
                   uiState === "LISTENING"
-                ? "bg-[var(--accent-primary)] animate-pulse"
+                ? "bg-(--accent-primary) animate-pulse"
                 : uiState === "CONNECTING"
                   ? "bg-yellow-500 animate-pulse"
-                  : "bg-[var(--text-muted)]"
+                  : "bg-(--text-muted)"
           }`}
         />
         <span className={`text-sm ${getStatusColor()}`}>{getStatusText()}</span>

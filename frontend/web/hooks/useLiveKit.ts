@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { Room, RoomEvent, Track, createLocalAudioTrack } from "livekit-client";
 import { VerificationResult, Product } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -25,7 +25,7 @@ interface UseLiveKitProps {
   onVerificationResult?: (
     status: VerificationStatus,
     score: number | null,
-    reason: string | null,
+    reason: string | null
   ) => void;
 }
 
@@ -46,204 +46,78 @@ export function useLiveKit({
   const rafRef = useRef<number | null>(null);
 
   const [uiState, setUiState] = useState<UiState>("IDLE");
-  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false); // ✅ NEW: Track when agent is speaking
+  const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
 
   const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL!;
   const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL!;
 
-  /* ================= JOIN ROOM ================= */
+  /* ================= KEEP CALLBACKS FRESH ================= */
 
-  const joinRoom = useCallback(async () => {
-    if (isJoiningRef.current) return;
-    isJoiningRef.current = true;
+  const onMessageRef = useRef(onMessage);
+  const onVerifyStatusRef = useRef(onVerifyStatus);
+  const onRoomStatusRef = useRef(onRoomStatus);
+  const onScoreRef = useRef(onScore);
+  const onProductCardsRef = useRef(onProductCards);
+  const onVerificationResultRef = useRef(onVerificationResult);
+  const tokenRef = useRef(token);
 
-    try {
-      setUiState("CONNECTING");
-      onRoomStatus("⏳ Connecting…");
+  useEffect(() => { onMessageRef.current = onMessage; }, [onMessage]);
+  useEffect(() => { onVerifyStatusRef.current = onVerifyStatus; }, [onVerifyStatus]);
+  useEffect(() => { onRoomStatusRef.current = onRoomStatus; }, [onRoomStatus]);
+  useEffect(() => { onScoreRef.current = onScore; }, [onScore]);
+  useEffect(() => { onProductCardsRef.current = onProductCards; }, [onProductCards]);
+  useEffect(() => { onVerificationResultRef.current = onVerificationResult; }, [onVerificationResult]);
+  useEffect(() => { tokenRef.current = token; }, [token]);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  /* ================= HANDLE AGENT DATA ================= */
 
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        onRoomStatus("❌ Belum login");
-        setUiState("IDLE");
-        isJoiningRef.current = false;
-        return;
-      }
-
-      const res = await fetch(`${SERVER_URL}/join-token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!res.ok) {
-        console.error(await res.text());
-        onRoomStatus("❌ Gagal ambil token");
-        setUiState("IDLE");
-        isJoiningRef.current = false;
-        return;
-      }
-
-      const { token: lkToken } = await res.json();
-
-      const room = new Room({ adaptiveStream: true, dynacast: true });
-      roomRef.current = room;
-
-      room.on(RoomEvent.Connected, () => {
-        onRoomStatus("✅ Connected");
-        setUiState("CHATTING");
-      });
-
-      room.on(RoomEvent.Disconnected, () => {
-        isJoiningRef.current = false;
-        onRoomStatus("🔌 Disconnected");
-        setUiState("IDLE");
-        setIsAgentSpeaking(false); // ✅ Reset when disconnected
-        roomRef.current = null;
-      });
-
-      room.on(RoomEvent.DataReceived, (payload, _, __, topic) => {
-        handleAgentData(payload, topic);
-      });
-
-      // ✅ Track when agent audio starts/stops
-      room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        if (track.kind === Track.Kind.Audio) {
-          const el = track.attach();
-          document.body.appendChild(el);
-          el.play().catch(() => {});
-
-          // ✅ Agent started speaking
-          setIsAgentSpeaking(true);
-
-          // ✅ Listen for when audio ends
-          el.onended = () => {
-            setIsAgentSpeaking(false);
-          };
-
-          el.onpause = () => {
-            setIsAgentSpeaking(false);
-          };
-        }
-      });
-
-      // ✅ Track when agent audio is unsubscribed
-      room.on(RoomEvent.TrackUnsubscribed, (track) => {
-        if (track.kind === Track.Kind.Audio) {
-          setIsAgentSpeaking(false);
-        }
-      });
-
-      // ✅ Use ActiveSpeakersChanged event - most reliable for detecting speech
-      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-        // Check if any remote participant (agent) is speaking
-        const agentSpeaking = speakers.some(
-          (speaker) => speaker.identity !== room.localParticipant.identity,
-        );
-        setIsAgentSpeaking(agentSpeaking);
-      });
-
-      await room.connect(LIVEKIT_URL, lkToken);
-
-      const micTrack = await createLocalAudioTrack();
-      await room.localParticipant.publishTrack(micTrack);
-    } catch (err) {
-      console.error("Join error:", err);
-      isJoiningRef.current = false;
-      setUiState("IDLE");
-      onRoomStatus("❌ Connection error");
-    }
-  }, [SERVER_URL, LIVEKIT_URL, onRoomStatus]);
-
-  /* ================= LEAVE ROOM ================= */
-
-  const leaveRoom = useCallback(async () => {
-    if (roomRef.current) {
-      await roomRef.current.disconnect();
-      roomRef.current = null;
-    }
-
-    // Stop any ongoing recording
-    if (recorderRef.current) {
-      recorderRef.current.stop();
-      recorderRef.current = null;
-    }
-
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-
-    isJoiningRef.current = false;
-    setUiState("IDLE");
-    setIsAgentSpeaking(false); // ✅ Reset
-    onRoomStatus("🔌 Disconnected");
-  }, [onRoomStatus]);
-
-  /* ================= TOGGLE ROOM (JOIN/LEAVE) ================= */
-
-  const toggleRoom = useCallback(async () => {
-    if (uiState === "IDLE") {
-      await joinRoom();
-    } else {
-      await leaveRoom();
-    }
-  }, [uiState, joinRoom, leaveRoom]);
-
-  /* ================= AGENT DATA ================= */
-
-  const handleAgentData = useCallback(
+  const handleAgentDataRef = useRef(
     (payload: Uint8Array, topic?: string) => {
       const text = new TextDecoder().decode(payload).trim();
       if (!text.startsWith("{")) return;
 
-      const msg = JSON.parse(text);
+      let msg: any;
+      try {
+        msg = JSON.parse(text);
+      } catch {
+        return;
+      }
 
       if (msg.type === "VOICE_CMD" && msg.action === "START_RECORD") {
-        startVADRecording();
+        startVADRecordingRef.current();
         return;
       }
 
       if (msg.type === "PRODUCT_CARDS") {
-        onProductCards?.(msg.products);
+        onProductCardsRef.current?.(msg.products);
         return;
       }
 
       if (msg.type === "AGENT_MESSAGE") {
-        onMessage("assistant", msg.text);
+        onMessageRef.current("assistant", msg.text);
         return;
       }
 
       if (msg.type === "USER_MESSAGE") {
-        onMessage("user", msg.text);
+        onMessageRef.current("user", msg.text);
       }
-    },
-    [onMessage, onProductCards],
+    }
   );
 
-  /* ================= VAD RECORD (VERIF ONLY) ================= */
+  /* ================= VOICE RECORDING ================= */
 
-  const startVADRecording = async () => {
+  const startVADRecordingRef = useRef(async () => {
     if (recorderRef.current) return;
-    if (!token) {
-      onVerifyStatus("❌ Login dulu sebelum verifikasi");
+    if (!tokenRef.current) {
+      onVerifyStatusRef.current("❌ Login dulu sebelum verifikasi");
       return;
     }
 
     setUiState("LISTENING");
-    onVerifyStatus("🎧 Silakan bicara...");
+    onVerifyStatusRef.current("🎧 Silakan bicara...");
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const audioCtx = new AudioContext();
-
     const source = audioCtx.createMediaStreamSource(stream);
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
@@ -279,12 +153,10 @@ export function useLiveKit({
       if (!chunksRef.current.length) return;
 
       setUiState("VERIFYING");
-      onVerifyStatus("🔐 Memverifikasi suara...");
+      onVerifyStatusRef.current("🔐 Memverifikasi suara...");
 
-      await sendForVerification(
-        new Blob(chunksRef.current, {
-          type: "audio/webm;codecs=opus",
-        }),
+      await sendForVerificationRef.current(
+        new Blob(chunksRef.current, { type: "audio/webm;codecs=opus" })
       );
     };
 
@@ -319,18 +191,19 @@ export function useLiveKit({
     };
 
     loop();
-  };
+  });
 
   /* ================= VERIFY ================= */
 
-  const sendForVerification = async (blob: Blob) => {
+  const sendForVerificationRef = useRef(async (blob: Blob) => {
     const session = await supabase.auth.getSession();
     const accessToken = session.data.session?.access_token;
 
     if (!accessToken) {
-      onVerifyStatus("❌ Login dulu sebelum verifikasi");
+      onVerifyStatusRef.current("❌ Login dulu sebelum verifikasi");
       return;
     }
+
     const form = new FormData();
     form.append("audio", blob, "voice.webm");
 
@@ -341,11 +214,14 @@ export function useLiveKit({
     });
 
     const result: VerificationResult = await res.json();
-    onScore(result.score ?? null);
+    onScoreRef.current(result.score ?? null);
 
-    // ✅ Trigger toast notification
     const status = result.status as VerificationStatus;
-    onVerificationResult?.(status, result.score ?? null, result.reason ?? null);
+    onVerificationResultRef.current?.(
+      status,
+      result.score ?? null,
+      result.reason ?? null
+    );
 
     await roomRef.current?.localParticipant.publishData(
       new TextEncoder().encode(
@@ -353,17 +229,141 @@ export function useLiveKit({
           decision: result.status,
           score: result.score,
           ts: Date.now(),
-        }),
+        })
       ),
-      { reliable: true, topic: "VOICE_RESULT" },
+      { reliable: true, topic: "VOICE_RESULT" }
     );
 
     setUiState("CHATTING");
-  };
+  });
 
-  /* ================= CHECK IF CONNECTED ================= */
+  /* ================= JOIN ROOM ================= */
 
-  const isConnected = uiState !== "IDLE" && uiState !== "CONNECTING";
+  const joinRoom = useCallback(async () => {
+    if (isJoiningRef.current) return;
+    isJoiningRef.current = true;
+
+    try {
+      setUiState("CONNECTING");
+      onRoomStatusRef.current("⏳ Connecting…");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        onRoomStatusRef.current("❌ Belum login");
+        setUiState("IDLE");
+        isJoiningRef.current = false;
+        return;
+      }
+
+      const res = await fetch(`${SERVER_URL}/join-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        onRoomStatusRef.current("❌ Gagal ambil token");
+        setUiState("IDLE");
+        isJoiningRef.current = false;
+        return;
+      }
+
+      const { token: lkToken } = await res.json();
+
+      const room = new Room({ adaptiveStream: true, dynacast: true });
+      roomRef.current = room;
+
+      room.on(RoomEvent.Connected, () => {
+        onRoomStatusRef.current("✅ Connected");
+        setUiState("CHATTING");
+      });
+
+      room.on(RoomEvent.Disconnected, () => {
+        isJoiningRef.current = false;
+        setIsAgentSpeaking(false);
+        onRoomStatusRef.current("🔌 Disconnected");
+        setUiState("IDLE");
+        roomRef.current = null;
+      });
+
+      room.on(RoomEvent.DataReceived, (payload, _, __, topic) => {
+        handleAgentDataRef.current(payload, topic);
+      });
+
+      room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          const el = track.attach();
+          document.body.appendChild(el);
+          el.play().catch(() => {});
+          setIsAgentSpeaking(true);
+          el.onended = () => setIsAgentSpeaking(false);
+          el.onpause = () => setIsAgentSpeaking(false);
+        }
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          setIsAgentSpeaking(false);
+        }
+      });
+
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        const agentSpeaking = speakers.some(
+          (s) => s.identity !== room.localParticipant.identity
+        );
+        setIsAgentSpeaking(agentSpeaking);
+      });
+
+      await room.connect(LIVEKIT_URL, lkToken);
+
+      const micTrack = await createLocalAudioTrack();
+      await room.localParticipant.publishTrack(micTrack);
+    } catch (err) {
+      console.error("Join error:", err);
+      isJoiningRef.current = false;
+      setUiState("IDLE");
+      onRoomStatusRef.current("❌ Connection error");
+    }
+  }, [SERVER_URL, LIVEKIT_URL]);
+
+  /* ================= LEAVE ROOM ================= */
+
+  const leaveRoom = useCallback(async () => {
+    if (roomRef.current) {
+      await roomRef.current.disconnect();
+      roomRef.current = null;
+    }
+
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      recorderRef.current = null;
+    }
+
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    isJoiningRef.current = false;
+    setIsAgentSpeaking(false);
+    setUiState("IDLE");
+    onRoomStatusRef.current("🔌 Disconnected");
+  }, []);
+
+  const toggleRoom = useCallback(async () => {
+    if (uiState === "IDLE") {
+      await joinRoom();
+    } else {
+      await leaveRoom();
+    }
+  }, [uiState, joinRoom, leaveRoom]);
+
+  const isConnected =
+    uiState !== "IDLE" && uiState !== "CONNECTING";
 
   return {
     joinRoom,
@@ -371,6 +371,6 @@ export function useLiveKit({
     toggleRoom,
     uiState,
     isConnected,
-    isAgentSpeaking, // ✅ NEW: Export this
+    isAgentSpeaking,
   };
 }

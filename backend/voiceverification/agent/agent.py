@@ -83,26 +83,26 @@ class ShoppingAgent(Agent):
             ],
         )
 
-    async def on_agent_start(self, session: AgentSession):
-        print("🤖 ShoppingAgent started")
-
 # ================= SERVER =================
 server = AgentServer()
 
+_active_rooms: set[str] = set()
+_active_rooms_lock = asyncio.Lock()
+
 @server.rtc_session()
 async def connect(ctx: agents.JobContext):
-    """
-    Dipanggil otomatis oleh LiveKit Worker.
-    1 room = 1 agent instance.
-    """
-
     room = ctx.room
     room_name = room.name
 
-    # Optional filter
     if not room_name.startswith("user-"):
-        print(f"⏭ Skip room: {room_name}")
         return
+
+    # ✅ Cek duplikat agent secara atomic
+    async with _active_rooms_lock:
+        if room_name in _active_rooms:
+            print(f"⚠️ Agent sudah ada di room: {room_name}, skip")
+            return
+        _active_rooms.add(room_name)
 
     print(f"🤖 Agent CONNECT ke room: {room_name}")
 
@@ -110,156 +110,156 @@ async def connect(ctx: agents.JobContext):
     room_state = {
         "conversation_session_id": None,
         "user_id": None,
-        "voice_status": "UNVERIFIED",
-        "verify_attempts": 0,
         "is_voice_verified": False,
+        "is_verifying": False,
+        "verify_attempts": 0,
+        "session_lock": asyncio.Lock(),
+        "voice_status": "UNVERIFIED",
         "last_verified_at": None,
-        "greeted": False,
     }
 
-    auth_state["agent_state"] = room_state  # Share state with tools
-    auth_state["room_ref"] = room  # Share room reference for tools to send messages if needed
+    auth_state["agent_state"] = room_state
+    auth_state["room_ref"] = room
 
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
             model="models/gemini-2.5-flash-native-audio-latest",
-            voice="Charon",
+            voice="Kore",
         )
     )
 
+    # ================= DISCONNECT EVENT =================
+    disconnected_event = asyncio.Event()
 
-    # ================= DATA CHANNEL =================
+    @room.on("disconnected")
+    def on_room_disconnected():
+        print(f"🔌 Room disconnected: {room_name}")
+        _active_rooms.discard(room_name)
+        print(f"🧹 Room released: {room_name}")
+        disconnected_event.set()
+
+    # ================= VOICE RESULT =================
     @room.on("data_received")
     def on_data(packet):
         if packet.topic != "VOICE_RESULT":
             return
 
         try:
-            print("RAW VOICE RESULT:", packet.data)
             decoded = json.loads(packet.data.decode())
             decision = decoded.get("decision") or decoded.get("status")
 
             print("📦 Voice result:", decision)
 
+            room_state["is_verifying"] = False
+
             if decision == "VERIFIED":
+                room_state["is_voice_verified"] = True
                 room_state["voice_status"] = "VERIFIED"
                 room_state["verify_attempts"] = 0
-                room_state["is_voice_verified"] = True
                 room_state["last_verified_at"] = time.time()
 
-            elif decision == "REPEAT":
-                room_state["verify_attempts"] += 1
-                room_state["voice_status"] = "REPEAT"
-
             elif decision == "DENIED":
-                room_state["verify_attempts"] += 1
                 room_state["voice_status"] = "DENIED"
+                room_state["verify_attempts"] += 1
+
+            elif decision == "REPEAT":
+                room_state["voice_status"] = "REPEAT"
+                room_state["verify_attempts"] += 1
 
         except Exception as e:
             print("❌ Voice result error:", e)
 
-    # ================= CONVERSATION LOGGING =================
+    # ================= CONVERSATION =================
     @session.on("conversation_item_added")
     def on_conversation_item(event):
+        asyncio.create_task(handle_conversation(event))
+
+    async def handle_conversation(event):
         role = event.item.role
         text = event.item.text_content
 
         if not text or role not in ("user", "assistant"):
             return
 
-        if room_state["conversation_session_id"]:
+        await ensure_conversation_session()
+
+        # ================= USER =================
+        if role == "user":
             insert_conversation_log(
                 session_id=room_state["conversation_session_id"],
                 role=role,
                 content=text
             )
 
-        print(f"{role.upper()}: {text}")
+            await room.local_participant.publish_data(
+                json.dumps({
+                    "type": "USER_MESSAGE",
+                    "text": text,
+                    "ts": time.time()
+                }).encode(),
+                reliable=True,
+                topic="chat"
+            )
 
-        if role == "user":
-            asyncio.create_task(ensure_conversation_session())
-            if room_state["voice_status"] != "VERIFIED":
-
+            # ================= VOICE CHECK =================
+            if not room_state["is_voice_verified"]:
                 if room_state["verify_attempts"] >= MAX_VERIFY_ATTEMPTS:
-                    asyncio.create_task(
-                        session.generate_reply(
-                            instructions=(
-                                "Maaf, verifikasi suara gagal. "
-                                "Aksi sensitif tidak bisa dilakukan."
-                            )
+                    await session.generate_reply(
+                        instructions=(
+                            "Maaf, verifikasi suara gagal. "
+                            "Aksi sensitif tidak bisa dilakukan."
                         )
                     )
                 else:
-                    asyncio.create_task(start_verification())
+                    await start_verification()
 
-            asyncio.create_task(
-                room.local_participant.publish_data(
-                    json.dumps({
-                        "type": "USER_MESSAGE",
-                        "text": text,
-                        "ts": time.time()
-                    }).encode(),
-                    reliable=True,
-                    topic="chat"
-                )
-            )
-
+        # ================= ASSISTANT =================
         elif role == "assistant":
-            asyncio.create_task(
-                room.local_participant.publish_data(
-                    json.dumps({
-                        "type": "AGENT_MESSAGE",
-                        "text": text,
-                        "ts": time.time()
-                    }).encode(),
-                    reliable=True,
-                    topic="chat"
+            if room_state["conversation_session_id"]:
+                insert_conversation_log(
+                    session_id=room_state["conversation_session_id"],
+                    role=role,
+                    content=text
                 )
-            )
 
-    # ================= GOODBYE =================
-    async def handle_goodbye():
-        try:
-            await session.generate_reply(
-                instructions="Ucapkan goodbye singkat dan ramah."
+            await room.local_participant.publish_data(
+                json.dumps({
+                    "type": "AGENT_MESSAGE",
+                    "text": text,
+                    "ts": time.time()
+                }).encode(),
+                reliable=True,
+                topic="chat"
             )
-            await asyncio.sleep(3)
-            await session.aclose()
-            await room.disconnect()
-        except:
-            await room.disconnect()
 
     # ================= VERIFICATION =================
-    async def send_cmd(action: str):
-        payload = json.dumps({
-            "type": "VOICE_CMD",
-            "action": action,
-            "ts": time.time()
-        }).encode()
+    async def start_verification():
+        if room_state["is_voice_verified"]:
+            return
+        if room_state["is_verifying"]:
+            return
+
+        room_state["is_verifying"] = True
 
         await room.local_participant.publish_data(
-            payload,
+            json.dumps({"type": "VOICE_CMD", "action": "START_RECORD"}).encode(),
             reliable=True,
             topic="VOICE_CMD"
         )
 
-    async def start_verification():
-        await asyncio.sleep(0.4)
-        await send_cmd("READY_FOR_USER")
-        await asyncio.sleep(0.3)
-        await send_cmd("START_RECORD")
-
+    # ================= SESSION =================
     async def ensure_conversation_session():
-        if room_state["conversation_session_id"]:
-            return
+        async with room_state["session_lock"]:
+            if room_state["conversation_session_id"]:
+                return
 
-        session_id = create_conversation_session(
-            user_id=room_state["user_id"],
-            label="New session",
-        )
+            session_id = create_conversation_session(
+                user_id=room_state["user_id"],
+                label="New session"
+            )
 
-        room_state["conversation_session_id"] = session_id
-        print("📝 Session created:", session_id)
+            room_state["conversation_session_id"] = session_id
+            print("📝 Session created:", session_id)
 
     # ================= START SESSION =================
     await session.start(
@@ -275,15 +275,13 @@ async def connect(ctx: agents.JobContext):
         ),
     )
 
-    print(f"🚀 Agent running for room: {room_name}")
+    participants = list(room.remote_participants.values())
+    if participants:
+        room_state["user_id"] = room_name.replace("user-", "")
+    else:
+        room_state["user_id"] = None
 
-    participant = await ctx.wait_for_participant()
-    identity = participant.identity
-
-    room_state["user_id"] = identity
-
-
-    # 🔥 GREETING LANGSUNG DI SINI
+    # GREETING
     await session.generate_reply(
         instructions=SESSION_INSTRUCTION
     )
@@ -291,6 +289,9 @@ async def connect(ctx: agents.JobContext):
     print("✅ Greeting sent")
 
     await start_verification()
+
+    # ✅ Tahan coroutine agar connect() tidak exit — room tetap aktif
+    await disconnected_event.wait()
 
 # ================= ENTRYPOINT =================
 if __name__ == "__main__":

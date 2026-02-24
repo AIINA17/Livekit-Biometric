@@ -273,9 +273,6 @@ export default function VoiceEnrollment({
     }
   };
 
-  /* =========================
-       UI
-    ========================== */
 
   return (
     <>

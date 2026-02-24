@@ -1,8 +1,8 @@
 // components/AuthCard.tsx
-'use client';
+"use client";
 
-import { FormEvent, useState } from 'react';
-import Image from 'next/image';
+import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { IoEye, IoEyeOff } from "react-icons/io5";
 
 interface AuthCardProps {
@@ -11,9 +11,9 @@ interface AuthCardProps {
 }
 
 export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -22,7 +22,7 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
     setIsLoading(true);
 
     try {
-      if (mode === 'login') {
+      if (mode === "login") {
         await onLogin(email, password);
       } else {
         await onSignup(email, password);
@@ -33,9 +33,9 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
   };
 
   const switchMode = () => {
-    setMode(mode === 'login' ? 'signup' : 'login');
-    setEmail('');
-    setPassword('');
+    setMode(mode === "login" ? "signup" : "login");
+    setEmail("");
+    setPassword("");
   };
 
   return (
@@ -47,7 +47,7 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
           alt="Happy"
           width={48}
           height={48}
-          style={{ width: 'auto', height: 'auto' }}
+          style={{ width: "auto", height: "auto" }}
           className="object-contain"
         />
         <h1 className="font-outfit text-4xl font-bold text-(--accent-primary)">
@@ -84,7 +84,7 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
             </label>
             <div className="relative">
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -112,14 +112,16 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
           {/* Switch Mode Link */}
           <div className="text-center text-sm">
             <span className="text-(--text-secondary)">
-              {mode === 'login' ? "Don't have an account yet? " : "Already have an account? "}
+              {mode === "login"
+                ? "Don't have an account yet? "
+                : "Already have an account? "}
             </span>
             <button
               type="button"
               onClick={switchMode}
               className="text-(--accent-link) hover:underline font-medium cursor-pointer"
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === "login" ? "Sign up" : "Sign in"}
             </button>
           </div>
 
@@ -133,7 +135,7 @@ export default function AuthCard({ onLogin, onSignup }: AuthCardProps) {
                        disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all cursor-pointer"
           >
-            {isLoading ? 'Loading...' : mode === 'login' ? 'Login' : 'Sign up'}
+            {isLoading ? "Loading..." : mode === "login" ? "Login" : "Sign up"}
           </button>
         </form>
       </div>

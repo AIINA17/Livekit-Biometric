@@ -1,12 +1,8 @@
-'use client';
+"use client";
 
 export default function TypingIndicator() {
   return (
     <div className="flex gap-3 self-start max-w-[80%] animate-fadeIn">
-      
-      
-
-      
       <div className="flex flex-col gap-1 items-start">
         <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-gray-500 mb-1">
           Listening

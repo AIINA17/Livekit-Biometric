@@ -38,7 +38,7 @@ interface ChatAreaProps {
   setVerifyStatus: (status: string) => void;
   setRoomStatus: (status: string) => void;
   setScore: (score: number | null) => void;
-  isViewingHistory?: boolean; // ✅ NEW: Flag untuk history mode
+  isViewingHistory?: boolean; 
 }
 
 export default function ChatArea({
@@ -56,13 +56,12 @@ export default function ChatArea({
   setVerifyStatus,
   setRoomStatus,
   setScore,
-  isViewingHistory = false, // ✅ Default false
+  isViewingHistory = false, 
 }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("voice");
-  const [isProductSidebarOpen, setIsProductSidebarOpen] = useState(true); // ✅ NEW: Product sidebar toggle
+  const [isProductSidebarOpen, setIsProductSidebarOpen] = useState(true); 
 
-  // ✅ Detect if viewing history (has messages but not connected)
   const isHistoryMode = messages.length > 0 && !isConnected;
 
   const scrollToBottom = () => {
@@ -82,17 +81,14 @@ export default function ChatArea({
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
           {isHistoryMode ? (
-            // ✅ HISTORY MODE: Only show chat messages
             <HistoryModeView
               messages={messages}
               isTyping={isTyping}
               messagesEndRef={messagesEndRef}
             />
           ) : viewMode === "voice" ? (
-            // VOICE MODE: Show Happy mascot
             <VoiceModeView isSpeaking={isSpeaking} />
           ) : (
-            // CHAT MODE: Show chat messages
             <ChatModeView
               messages={messages}
               isTyping={isTyping}
@@ -101,7 +97,6 @@ export default function ChatArea({
           )}
         </div>
 
-        {/* ✅ Bottom controls - HIDE when viewing history */}
         {!isHistoryMode && (
           <div className="p-1 flex flex-col items-center gap-4 border-t border-(--bg-tertiary)">
             <ModeToggle currentMode={viewMode} onModeChange={setViewMode} />
@@ -121,7 +116,6 @@ export default function ChatArea({
         )}
       </div>
 
-      {/* ====== RIGHT: Product Sidebar (Collapsible) ====== */}
       <ProductSidebar
         products={products}
         isOpen={isProductSidebarOpen}
@@ -140,7 +134,6 @@ interface ProductSidebarProps {
 function ProductSidebar({ products, isOpen, onToggle }: ProductSidebarProps) {
   const hasProducts = products.length > 0;
 
-  // Don't render anything if no products
   if (!hasProducts) return null;
 
   return (

@@ -351,7 +351,8 @@ async def update_session_label(
 ):
     user_id = get_user_id_from_request(request)
     sb = get_supabase()
-
+    
+    new_label = payload.label.strip()
     if not payload.label.strip():
         raise HTTPException(400, "Label cannot be empty")
 
@@ -368,13 +369,13 @@ async def update_session_label(
 
     update_conversation_session_label(
         session_id=session_id,
-        label=payload.label
+        new_label=new_label
     )
 
     return {
         "status": "OK",
         "session_id": session_id,
-        "label": payload.label
+        "label": new_label
     }
 
 # =========================
@@ -400,12 +401,22 @@ async def delete_conversation_session(
     if not session_check.data:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Hapus logs terkait
+    # delete logs
     sb.table("conversation_logs")\
         .delete()\
         .eq("session_id", session_id)\
         .execute()  
     
+    # delete session
+    sb.table("conversation_sessions")\
+        .delete()\
+        .eq("id", session_id)\
+        .execute()
+
+    return {
+        "status": "OK",
+        "session_id": session_id
+    }
 
 #========================
 # GET ALL ENROLLMENTS

@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #1f1e1d;
-  --bg-secondary: #252624;
-  --bg-tertiary: #30302e;
-  --bg-card: #30302e;
-  --text-primary: #ffffff;
-  --text-secondary: #c2c0b6;
-  --text-muted: #5c5c5c;
-  --text-white-70: rgba(255, 255, 255, 0.7);
-  --text-white-50: rgba(255, 255, 255, 0.5);
-  --accent-primary: #4598c5;
-  --accent-link: #4598c5;
-  --border-color: #5c5c5c;
-  --input-bg: #5c5c5c;
-  --bubble-user: #30302e;
-  --bubble-agent: #252624;
+    --bg-primary: #1f1e1d;
+    --bg-secondary: #252624;
+    --bg-tertiary: #30302e;
+    --bg-card: #30302e;
+    --text-primary: #ffffff;
+    --text-secondary: #c2c0b6;
+    --text-muted: #5c5c5c;
+    --text-white-70: rgba(255, 255, 255, 0.7);
+    --text-white-50: rgba(255, 255, 255, 0.5);
+    --accent-primary: #4598c5;
+    --accent-link: #4598c5;
+    --border-color: #5c5c5c;
+    --input-bg: #5c5c5c;
+    --bubble-user: #30302e;
+    --bubble-agent: #252624;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
@@ -134,8 +134,8 @@ body {
 }
 
 .modal-backdrop {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
 }
 
 input::placeholder {

@@ -1,11 +1,10 @@
-// components/ProductCards.tsx
-"use client";
+'use client';
 
-import { Product } from "@/types";
-import Image from "next/image";
-import Link from "next/link";
-import { AiOutlineProduct } from "react-icons/ai";
-import { IoMdChatboxes } from "react-icons/io";
+import { Product } from '@/types';
+import Image from 'next/image';
+import Link from 'next/link';
+import { AiOutlineProduct } from 'react-icons/ai';
+import { IoMdChatboxes } from 'react-icons/io';
 
 interface ProductCardsProps {
   products: Product[];
@@ -14,10 +13,15 @@ interface ProductCardsProps {
 export default function ProductCards({ products }: ProductCardsProps) {
   if (!products || products.length === 0) return null;
 
+  // ✅ DEDUPE PRODUCTS BY ID
+  const uniqueProducts = Array.from(
+    new Map(products.map((p) => [p.id, p])).values()
+  );
+
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(price);
   };
@@ -28,13 +32,13 @@ export default function ProductCards({ products }: ProductCardsProps) {
       <div className="mb-3">
         <div className="flex items-center gap-2 text-md font-medium text-white">
           <AiOutlineProduct className="w-6 h-6" />
-          <span>{products.length} Product(s) Found</span>
+          <span>{uniqueProducts.length} Product(s) Found</span>
         </div>
       </div>
 
       {/* Products Grid */}
       <div className="grid grid-cols-2 gap-3">
-        {products.map((product) => (
+        {uniqueProducts.map((product) => (
           <Link
             key={product.id}
             href={`https://dummy-ecommerce-tau.vercel.app/product/${product.id}`}
@@ -43,6 +47,7 @@ export default function ProductCards({ products }: ProductCardsProps) {
             className="block"
           >
             <div className="bg-black-50 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer">
+              
               {/* Image */}
               <div className="relative aspect-square bg-black-50 overflow-hidden">
                 {product.image_url ? (
@@ -74,7 +79,6 @@ export default function ProductCards({ products }: ProductCardsProps) {
 
               {/* Content */}
               <div className="p-3">
-                {/* Category Badge */}
                 {product.category && (
                   <div className="mb-2">
                     <span className="inline-block px-2 py-0.5 text-[0.65rem] font-medium text-gray-600 bg-gray-100 rounded-md">
@@ -83,19 +87,16 @@ export default function ProductCards({ products }: ProductCardsProps) {
                   </div>
                 )}
 
-                {/* Product Name */}
                 <h3 className="text-sm font-semibold text-white mb-2 line-clamp-2 leading-tight">
                   {product.name}
                 </h3>
 
-                {/* Price */}
                 <div className="flex items-baseline gap-1.5 mb-2">
                   <span className="text-base font-bold text-white">
                     {formatPrice(product.price)}
                   </span>
                 </div>
 
-                {/* Stock Status */}
                 {product.stock !== undefined && (
                   <div className="flex items-center gap-1.5">
                     {product.stock > 0 ? (
@@ -123,8 +124,8 @@ export default function ProductCards({ products }: ProductCardsProps) {
 
       {/* Footer hint */}
       <div className="mt-3 text-xs text-gray-400 italic">
-        <IoMdChatboxes className="inline mr-1 w-4 h-4" /> Ask for product
-        details or request to add to
+        <IoMdChatboxes className="inline mr-1 w-4 h-4" />
+        Ask for product details or request to add to cart
       </div>
     </div>
   );

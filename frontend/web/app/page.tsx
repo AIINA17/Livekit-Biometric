@@ -90,18 +90,6 @@ export default function Home() {
         setProducts(newProducts);
     };
 
-    // ✅ VERIFICATION RESULT HANDLER
-    const handleVerificationResult = useCallback(
-        (
-            status: VerificationStatus,
-            score: number | null,
-            reason: string | null,
-        ) => {
-            setVerificationResult({ status, score, reason });
-        },
-        [],
-    );
-
     const clearVerificationResult = useCallback(() => {
         setVerificationResult({ status: null, score: null, reason: null });
     }, []);
@@ -254,56 +242,7 @@ export default function Home() {
                 setVerifyStatus={setVerifyStatus}
                 setRoomStatus={setRoomStatus}
                 setScore={setScore}
-                onVerificationResult={handleVerificationResult}
             />
         </main>
     );
-  }
-
-  // LOGGED IN - Show Main App
-  return (
-    <main className="h-screen bg-(--bg-primary) flex overflow-hidden">
-      {/* ✅ VERIFICATION TOAST */}
-      <VerificationToast
-        status={verificationResult.status}
-        score={verificationResult.score}
-        reason={verificationResult.reason}
-        onClose={clearVerificationResult}
-      />
-
-      {/* Sidebar */}
-      <Sidebar
-        isLoggedIn={isLoggedIn}
-        userEmail={session?.user?.email || ""}
-        onLogout={handleLogout}
-        token={session?.access_token || null}
-        setVerifyStatus={setVerifyStatus}
-        currentSessionId={currentSessionId}
-        onSelectSession={handleSelectSession}
-        onNewChat={handleNewChat}
-      />
-
-      {/* Main Chat Area */}
-      <ChatArea
-        messages={messages}
-        products={products}
-        isLoggedIn={isLoggedIn}
-        token={session?.access_token || null}
-        isConnected={isConnected}
-        isTyping={isTyping}
-        isSpeaking={isSpeaking}
-        speakingRole={speakingRole}
-        setMessages={setMessages}
-        setIsConnected={setIsConnected}
-        setIsTyping={setIsTyping}
-        setIsSpeaking={setIsSpeaking}
-        setSpeakingRole={setSpeakingRole}
-        addMessage={addMessage}
-        onProductCards={handleProductCards}
-        setVerifyStatus={setVerifyStatus}
-        setRoomStatus={setRoomStatus}
-        setScore={setScore}
-      />
-    </main>
-  );
 }

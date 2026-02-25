@@ -11,7 +11,7 @@ from core.decision_engine import decide, Decision
 from core.trusted_update import TrustedUpdatePolicy
 from core.behavior_scoring import compute_behavior_score
 
-from db.behavior_repo import save_behavior_profile, load_behavior_profile
+
 
 class BiometricService:
     def __init__(self, device="cpu"):
@@ -28,8 +28,11 @@ class BiometricService:
         live_wav: str,
         enroll_embeddings: List[np.ndarray],
         user_id: Optional[str] = None,
+        behavior_profiles: Optional[dict[str, BehaviorProfile]] = None,
         is_retry: bool = False,
     ) -> dict:
+        behavior_profiles = behavior_profiles or {}
+
         # 1. Extract live embedding
         live_emb = self.speaker.extract_embedding(live_wav)
 
@@ -58,18 +61,19 @@ class BiometricService:
         behavior_score = None
         pitch, rate = None, None
         z_pitch = z_rate = None
+        updated_behavior_profile: BehaviorProfile | None = None
 
         if decision == Decision.VERIFIED:
             y, sr = librosa.load(live_wav, sr=16000)
             pitch = float(np.nanmean(librosa.yin(y, fmin=50, fmax=300, sr=sr)))
             rate = float(len(y) / sr)
 
-            behavior_profile = load_behavior_profile(user_id, best_label)
+            behavior_profile = behavior_profiles.get(best_label)
 
             if behavior_profile is None:
                 behavior_profile = BehaviorProfile()
                 behavior_profile.update(pitch, rate, datetime.now(timezone.utc))
-                save_behavior_profile(user_id, best_label, behavior_profile)
+                updated_behavior_profile = behavior_profile
             else:
                 # 🧠 compute behavior score
                 behavior_score, z_pitch, z_rate, _, _ = compute_behavior_score(
@@ -91,7 +95,7 @@ class BiometricService:
                     is_retry=is_retry,
                 ):
                     behavior_profile.update(pitch, rate, datetime.now(timezone.utc))
-                    save_behavior_profile(user_id, best_label, behavior_profile)
+                    updated_behavior_profile = behavior_profile 
 
         # 5. Log
         print(
@@ -117,4 +121,6 @@ class BiometricService:
             "pitch": pitch,
             "rate": rate,
             "behavior_score": behavior_score,
+
+            "updated_behavior_profile": updated_behavior_profile,
         } 

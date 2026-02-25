@@ -146,7 +146,6 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "reason": "No enrollment profile found for user."
         }
     
-
     # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
@@ -154,7 +153,15 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
     try:
         bio = get_biometric()
 
-        # 3️⃣ SINGLE CALL — semua logika di dalam
+        # 3️⃣ Load behavior profile per label yang terdaftar
+        behavior_profiles: dict[str, BehaviorProfile] = {}
+        for profile_meta in enroll_embeddings:
+            lbl = profile_meta["label"]
+            bp = load_behavior_profile(user_id, lbl)
+            if bp is not None:
+                behavior_profiles[lbl] = bp
+
+        # 4️⃣ Verify — pass per-label behavior profiles ke BiometricService
         start = time.time()
 
         result = await asyncio.to_thread(
@@ -162,12 +169,19 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             live_wav=wav_path,
             enroll_embeddings=enroll_embeddings,
             user_id=user_id,
+            behavior_profiles=behavior_profiles,
         )
 
         print("Verify took:", time.time() - start)
 
+        # 5️⃣ Simpan behavior profile hanya untuk label yang matched
+        matched_label: str | None = result.get("best_label")
+        updated_profile: BehaviorProfile | None = result.get("updated_behavior_profile")
 
-        # 5️ Response ke client / agent
+        if matched_label and updated_profile:
+            save_behavior_profile(user_id, matched_label, updated_profile)
+
+        # 6️⃣ Response ke client / agent
         return {
             "verified": result["verified"],
             "status": result["decision"],
@@ -176,7 +190,7 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "spoof_prob": result["spoof_prob"],
             "best_index": result["best_index"],
             "all_scores": result["all_scores"],
-            "matched_label": result["best_label"],
+            "matched_label": matched_label,
         }
 
     finally:

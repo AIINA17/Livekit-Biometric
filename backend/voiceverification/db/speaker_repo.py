@@ -44,7 +44,7 @@ def load_all_embeddings(user_id: str) -> list[np.ndarray]:
     profiles = []
     for row in res.data:
         profiles.append({
-            "embedding": np.array(row["embedding"]),
+            "embedding": np.array(row["embedding"], dtype=np.float32),
             "label": row["label"]
         })
 

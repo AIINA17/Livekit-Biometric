@@ -118,9 +118,8 @@ export default function ConfirmDialog({
                     {message}
                     {highlightText && (
                         <>
-                            {" "}
                             <span className="font-semibold text-(--text-primary)">
-                                "{highlightText}"
+                                {highlightText}
                             </span>
                         </>
                     )}

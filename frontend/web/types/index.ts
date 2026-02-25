@@ -22,13 +22,13 @@ export interface AgentCommand {
     products?: Product[];
     text?: string;
     role?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface VerificationResult {
     decision: string;
-    reason: any;
-    best_label: any;
+    reason: string | null;
+    best_label: string | null;
     verified: boolean;
     status: string;
     score: number;

@@ -12,10 +12,6 @@ export default function SoundWave({
     color = "var(--accent-primary)",
 }: SoundWaveProps) {
     const barCount = variant === "small" ? 5 : 7;
-    const heights =
-        variant === "small"
-            ? ["h-2", "h-4", "h-6", "h-4", "h-2"]
-            : ["h-3", "h-5", "h-8", "h-6", "h-8", "h-5", "h-3"];
 
     return (
         <div className="flex items-center justify-center gap-1 h-8">

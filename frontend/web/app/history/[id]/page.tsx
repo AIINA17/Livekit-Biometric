@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import type { Session } from "@supabase/supabase-js";
 
 import ChatArea from "@/components/ChatArea";
 import Sidebar from "@/components/Sidebar";
@@ -16,7 +17,7 @@ export default function HistoryDetailPage() {
     const params = useParams<{ id: string }>();
     const sessionId = params.id;
 
-    const [session, setSession] = useState<any | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -30,9 +31,9 @@ export default function HistoryDetailPage() {
         null,
     );
 
-    const [verifyStatus, setVerifyStatus] = useState("Idle");
-    const [roomStatus, setRoomStatus] = useState("Not connected");
-    const [score, setScore] = useState<number | null>(null);
+    const [, setVerifyStatus] = useState("Idle");
+    const [, setRoomStatus] = useState("Not connected");
+    const [, setScore] = useState<number | null>(null);
 
     const [verificationResult, setVerificationResult] = useState<{
         status: "VERIFIED" | "REPEAT" | "DENIED" | null;
@@ -99,7 +100,11 @@ export default function HistoryDetailPage() {
                 const data = await res.json();
 
                 const newMessages: Message[] = (data.logs || []).map(
-                    (log: any) => ({
+                    (log: {
+                        role: "user" | "assistant";
+                        content: string;
+                        created_at: string;
+                    }) => ({
                         role: log.role,
                         text: log.content,
                         timestamp: new Date(log.created_at),
@@ -108,7 +113,9 @@ export default function HistoryDetailPage() {
 
                 const allProducts: Product[] = (
                     data.product_cards || []
-                ).flatMap((card: any) => card.products || []);
+                ).flatMap(
+                    (card: { products?: Product[] }) => card.products || [],
+                );
 
                 setMessages(newMessages);
                 setProducts(allProducts);

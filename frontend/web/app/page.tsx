@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Session } from "@supabase/supabase-js";
 
 import ChatArea from "@/components/ChatArea";
 import Sidebar from "@/components/Sidebar";
@@ -17,7 +18,7 @@ export default function Home() {
     const router = useRouter();
 
     // Auth state
-    const [session, setSession] = useState<any | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -34,9 +35,9 @@ export default function Home() {
     );
 
     // Status
-    const [verifyStatus, setVerifyStatus] = useState("Idle");
-    const [roomStatus, setRoomStatus] = useState("Not connected");
-    const [score, setScore] = useState<number | null>(null);
+    const [, setVerifyStatus] = useState("Idle");
+    const [, setRoomStatus] = useState("Not connected");
+    const [, setScore] = useState<number | null>(null);
 
     const [verificationResult, setVerificationResult] = useState<{
         status: VerificationStatus;
@@ -47,8 +48,6 @@ export default function Home() {
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(
         null,
     );
-
-    const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
     useEffect(() => {
         const checkSession = async () => {
@@ -114,42 +113,6 @@ export default function Home() {
         setCurrentSessionId(null);
         setMessages([]);
         setProducts([]);
-    };
-
-    // Auth handlers
-    const handleLogin = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            alert(error.message);
-            return;
-        }
-
-        setSession(data.session);
-        setIsLoggedIn(true);
-    };
-
-    const handleSignup = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
-
-        if (error) {
-            alert("Signup gagal: " + error.message);
-            return;
-        }
-
-        if (!data.session) {
-            alert("Cek email kamu untuk verifikasi akun");
-            return;
-        }
-
-        setSession(data.session);
-        setIsLoggedIn(true);
     };
 
     const handleLogout = async () => {

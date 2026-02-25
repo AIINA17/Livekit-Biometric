@@ -86,11 +86,17 @@ export function useLiveKit({
 
     /* ================= HANDLE AGENT DATA ================= */
 
-    const handleAgentDataRef = useRef((payload: Uint8Array, topic?: string) => {
+    const handleAgentDataRef = useRef((payload: Uint8Array) => {
         const text = new TextDecoder().decode(payload).trim();
         if (!text.startsWith("{")) return;
 
-        let msg: any;
+        let msg: {
+            type?: string;
+            action?: string;
+            products?: Product[];
+            text?: string;
+            role?: string;
+        };
         try {
             msg = JSON.parse(text);
         } catch {

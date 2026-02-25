@@ -6,11 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { HiShoppingBag } from "react-icons/hi2";
 import { FaMicrophone } from "react-icons/fa";
-import {
-    IoChatbubblesOutline,
-    IoChevronBack,
-    IoChevronForward,
-} from "react-icons/io5";
+import { IoChatbubblesOutline, IoChevronForward } from "react-icons/io5";
 
 import LiveKitControls from "./LiveKitControls";
 import MessageBubble from "./MessageBubble";
@@ -114,7 +110,6 @@ export default function ChatArea({
                         />
                         <LiveKitControls
                             token={token}
-                            isConnected={isConnected}
                             setIsConnected={setIsConnected}
                             setRoomStatus={setRoomStatus}
                             setVerifyStatus={setVerifyStatus}

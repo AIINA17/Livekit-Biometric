@@ -2,7 +2,7 @@
 
 // Application sidebar with logo, enrollment controls, and recent sessions.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { MdDelete, MdModeEdit } from "react-icons/md";
 import {
@@ -87,7 +87,7 @@ export default function Sidebar({
             document.removeEventListener("mousedown", handleClickOutside);
     }, [showUserMenu]);
 
-    const loadSessions = async () => {
+    const loadSessions = useCallback(async () => {
         if (!token) return;
 
         setLoading(true);
@@ -111,7 +111,7 @@ export default function Sidebar({
         } finally {
             setLoading(false);
         }
-    };
+    }, [SERVER_URL, token]);
 
     useEffect(() => {
         if (!isLoggedIn || !token) return;
@@ -122,7 +122,7 @@ export default function Sidebar({
         }
 
         loadSessions();
-    }, [isLoggedIn, token]);
+    }, [isLoggedIn, token, loadSessions]);
 
     const handleNewChat = () => {
         onNewChat?.();

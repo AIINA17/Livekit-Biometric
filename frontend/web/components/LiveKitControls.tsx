@@ -10,7 +10,6 @@ import { Product } from "@/types";
 
 interface LiveKitControlsProps {
     token: string | null;
-    isConnected: boolean;
     setIsConnected: (value: boolean) => void;
     setRoomStatus: (status: string) => void;
     setVerifyStatus: (status: string) => void;
@@ -28,7 +27,6 @@ interface LiveKitControlsProps {
 
 export default function LiveKitControls({
     token,
-    isConnected,
     setIsConnected,
     setRoomStatus,
     setVerifyStatus,

@@ -242,6 +242,7 @@ export default function Home() {
                 setVerifyStatus={setVerifyStatus}
                 setRoomStatus={setRoomStatus}
                 setScore={setScore}
+                setVerificationResult={setVerificationResult}
             />
         </main>
     );

@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+// Application sidebar with logo, enrollment controls, and recent sessions.
+
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import VoiceEnrollment from "./VoiceEnrollment";
-import ConfirmDialog from "./ConfirmDialog";
+import { MdDelete, MdModeEdit } from "react-icons/md";
 import {
-    IoMenu,
-    IoEllipsisVertical,
-    IoChevronBack,
     IoAdd,
+    IoChevronBack,
+    IoEllipsisVertical,
+    IoMenu,
 } from "react-icons/io5";
-import { MdModeEdit, MdDelete } from "react-icons/md";
-import { PiUserSoundBold } from "react-icons/pi";
 import { LuLogOut } from "react-icons/lu";
+import { PiUserSoundBold } from "react-icons/pi";
+
+import ConfirmDialog from "./ConfirmDialog";
+import VoiceEnrollment from "./VoiceEnrollment";
 
 interface ConversationSession {
     id: string;
@@ -20,7 +23,6 @@ interface ConversationSession {
     created_at: string;
 }
 
-// Simple in-memory cache so session list tidak reload setiap pindah page
 let cachedSessions: ConversationSession[] = [];
 let cachedLoaded = false;
 
@@ -55,7 +57,6 @@ export default function Sidebar({
     const [loading, setLoading] = useState(!cachedLoaded);
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    // Dialog states
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState<{
         isOpen: boolean;
@@ -69,7 +70,6 @@ export default function Sidebar({
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
-    // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (
@@ -87,7 +87,6 @@ export default function Sidebar({
             document.removeEventListener("mousedown", handleClickOutside);
     }, [showUserMenu]);
 
-    // Fetch sessions dari backend
     const loadSessions = async () => {
         if (!token) return;
 
@@ -117,7 +116,6 @@ export default function Sidebar({
     useEffect(() => {
         if (!isLoggedIn || !token) return;
         if (cachedLoaded && cachedSessions.length > 0) {
-            // Gunakan cache agar sidebar tidak terlihat refresh saat pindah page
             setSessions(cachedSessions);
             setLoading(false);
             return;
@@ -131,7 +129,6 @@ export default function Sidebar({
         loadSessions();
     };
 
-    // Rename session
     const handleRename = async (sessionId: string, newLabel: string) => {
         if (!token) return;
 
@@ -166,7 +163,6 @@ export default function Sidebar({
         }
     };
 
-    // Open delete dialog
     const openDeleteDialog = (sessionId: string, sessionLabel: string) => {
         setDeleteDialog({
             isOpen: true,
@@ -175,7 +171,6 @@ export default function Sidebar({
         });
     };
 
-    // Delete session - FIXED: await response properly
     const handleDelete = async () => {
         if (!token || !deleteDialog.sessionId) return;
 
@@ -194,7 +189,6 @@ export default function Sidebar({
             const data = await res.json();
 
             if (res.ok && data.status === "OK") {
-                // Remove from local state
                 setSessions((prev) => {
                     const updated = prev.filter(
                         (session) => session.id !== deleteDialog.sessionId,
@@ -203,12 +197,10 @@ export default function Sidebar({
                     return updated;
                 });
 
-                // If deleted session is current, clear it
                 if (currentSessionId === deleteDialog.sessionId) {
                     onNewChat?.();
                 }
 
-                // Close dialog
                 setDeleteDialog({
                     isOpen: false,
                     sessionId: null,
@@ -234,26 +226,22 @@ export default function Sidebar({
 
     const confirmLogout = () => {
         setShowLogoutDialog(false);
-        // Reset cache saat logout
         cachedSessions = [];
         cachedLoaded = false;
         onLogout();
     };
 
-    // Toggle Enrollment List
     const handleEnrollmentListClick = () => {
         setShowUserMenu(false);
         setShowEnrollmentList((prev) => !prev);
     };
 
-    // Toggle collapse
     const toggleCollapse = () => {
         setIsCollapsed((prev) => !prev);
     };
 
     return (
         <>
-            {/* Delete Confirmation Dialog */}
             <ConfirmDialog
                 isOpen={deleteDialog.isOpen}
                 type="delete"

@@ -1,4 +1,5 @@
-// lib/supabase.ts
+// Supabase client configured for browser-side usage.
+
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

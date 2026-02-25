@@ -1,10 +1,13 @@
 "use client";
 
+// Login page for user authentication using Supabase.
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+
 import AuthCard from "@/components/AuthCard";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -15,7 +18,6 @@ export default function LoginPage() {
         message: string;
     }>({ isOpen: false, title: "", message: "" });
 
-    // Cek session saat pertama kali load
     useEffect(() => {
         const checkSession = async () => {
             const {
@@ -23,7 +25,6 @@ export default function LoginPage() {
             } = await supabase.auth.getSession();
 
             if (session) {
-                // Kalau sudah login, langsung ke halaman utama
                 router.replace("/");
             } else {
                 setIsLoading(false);

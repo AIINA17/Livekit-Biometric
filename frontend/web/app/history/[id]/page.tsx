@@ -1,11 +1,14 @@
 "use client";
 
+// History detail page for viewing a specific conversation by session id.
+
 import { useCallback, useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import Sidebar from "@/components/Sidebar";
+import { useParams, useRouter } from "next/navigation";
+
 import ChatArea from "@/components/ChatArea";
+import Sidebar from "@/components/Sidebar";
 import VerificationToast from "@/components/VerificationToast";
+import { supabase } from "@/lib/supabase";
 import { Message, Product } from "@/types";
 
 export default function HistoryDetailPage() {
@@ -13,24 +16,20 @@ export default function HistoryDetailPage() {
     const params = useParams<{ id: string }>();
     const sessionId = params.id;
 
-    // Auth state
     const [session, setSession] = useState<any | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Chat/history state
     const [messages, setMessages] = useState<Message[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
 
-    // Voice state (tidak dipakai di history tapi diperlukan oleh ChatArea)
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [speakingRole, setSpeakingRole] = useState<"user" | "agent" | null>(
         null,
     );
 
-    // Status
     const [verifyStatus, setVerifyStatus] = useState("Idle");
     const [roomStatus, setRoomStatus] = useState("Not connected");
     const [score, setScore] = useState<number | null>(null);
@@ -47,7 +46,6 @@ export default function HistoryDetailPage() {
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
-    // Cek session saat pertama kali load
     useEffect(() => {
         const checkSession = async () => {
             const {
@@ -82,7 +80,6 @@ export default function HistoryDetailPage() {
         return () => subscription.unsubscribe();
     }, [router]);
 
-    // Load logs untuk sessionId dari URL
     useEffect(() => {
         const loadSession = async () => {
             if (!session?.access_token || !SERVER_URL || !sessionId) return;
@@ -129,7 +126,6 @@ export default function HistoryDetailPage() {
     }, []);
 
     const handleSelectSession = async (newSessionId: string) => {
-        // Pindah ke URL history baru, data akan di-load oleh useEffect di atas
         router.replace(`/history/${newSessionId}`);
     };
 

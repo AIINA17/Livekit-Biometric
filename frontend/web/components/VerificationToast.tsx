@@ -1,5 +1,7 @@
 "use client";
 
+// Toast notification for showing voice verification results.
+
 import { useEffect, useState } from "react";
 import { IoCheckmarkCircle, IoCloseCircle, IoWarning } from "react-icons/io5";
 
@@ -22,9 +24,6 @@ export default function VerificationToast({
 
     useEffect(() => {
         if (!status) return;
-
-        // Use rAF to defer the state update out of the synchronous effect body,
-        // giving React a chance to commit the render before we trigger a transition.
         const raf = requestAnimationFrame(() => {
             setIsVisible(true);
         });

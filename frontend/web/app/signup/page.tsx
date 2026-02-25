@@ -1,9 +1,12 @@
 "use client";
 
+// Signup page for creating a new user account.
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+
 import AuthCard from "@/components/AuthCard";
+import { supabase } from "@/lib/supabase";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -25,22 +28,6 @@ export default function SignupPage() {
         checkSession();
     }, [router]);
 
-    const handleLogin = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            alert(error.message);
-            return;
-        }
-
-        if (data.session) {
-            router.replace("/");
-        }
-    };
-
     const handleSignup = async (email: string, password: string) => {
         const { data, error } = await supabase.auth.signUp({
             email,
@@ -48,16 +35,13 @@ export default function SignupPage() {
         });
 
         if (error) {
-            alert("Signup gagal: " + error.message);
+            // Error feedback is handled via the login page flow.
             return;
         }
 
-        if (!data.session) {
-            alert("Cek email kamu untuk verifikasi akun");
-            return;
+        if (data.session) {
+            router.replace("/");
         }
-
-        router.replace("/");
     };
 
     if (isLoading) {
@@ -71,7 +55,7 @@ export default function SignupPage() {
     return (
         <main className="h-screen bg-(--bg-primary) flex items-center justify-center p-4">
             <AuthCard
-                onLogin={handleLogin}
+                onLogin={async () => {}}
                 onSignup={handleSignup}
                 initialMode="signup"
                 onSwitchModeRoute={() => router.push("/login")}

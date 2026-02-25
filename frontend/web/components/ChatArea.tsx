@@ -1,21 +1,23 @@
-// components/ChatArea.tsx
 "use client";
+
+// Main chat area layout, handling voice/chat modes and product sidebar.
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { HiShoppingBag } from "react-icons/hi2";
 import { FaMicrophone } from "react-icons/fa";
 import {
     IoChatbubblesOutline,
-    IoChevronForward,
     IoChevronBack,
+    IoChevronForward,
 } from "react-icons/io5";
-import { HiShoppingBag } from "react-icons/hi2";
-import { Message, Product } from "@/types";
+
+import LiveKitControls from "./LiveKitControls";
 import MessageBubble from "./MessageBubble";
 import ProductCards from "./ProductCards";
-import TypingIndicator from "./TypingIndicator";
 import SoundWave from "./SoundWave";
-import LiveKitControls from "./LiveKitControls";
+import TypingIndicator from "./TypingIndicator";
+import { Message, Product } from "@/types";
 
 type ViewMode = "voice" | "chat";
 

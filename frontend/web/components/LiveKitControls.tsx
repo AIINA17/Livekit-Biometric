@@ -1,10 +1,12 @@
-// components/LiveKitControls.tsx
 "use client";
 
+// Controls for joining LiveKit, driving the voice button and status.
+
 import React, { useEffect } from "react";
+
+import VoiceButton from "./VoiceButton";
 import { useLiveKit } from "@/hooks/useLiveKit";
 import { Product } from "@/types";
-import VoiceButton from "./VoiceButton";
 
 interface LiveKitControlsProps {
     token: string | null;
@@ -49,11 +51,8 @@ export default function LiveKitControls({
         onVerifyStatus: setVerifyStatus,
         onRoomStatus: setRoomStatus,
         onScore: setScore,
-        onVerificationResult: (
-            status,
-            score,
-            reason,
-        ) => setVerificationResult({ status, score, reason }),
+        onVerificationResult: (status, score, reason) =>
+            setVerificationResult({ status, score, reason }),
     });
 
     useEffect(() => {

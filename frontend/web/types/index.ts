@@ -1,4 +1,4 @@
-// types/index.ts
+// Shared TypeScript interfaces for chat messages, products, and verification.
 
 export interface Message {
     role: "user" | "assistant";

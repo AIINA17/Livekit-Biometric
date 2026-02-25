@@ -1,5 +1,6 @@
-// components/AuthCard.tsx
 "use client";
+
+// Card-style authentication form used for login and signup.
 
 import { FormEvent, useState } from "react";
 import Image from "next/image";
@@ -42,13 +43,11 @@ export default function AuthCard({
     const switchMode = () => {
         const target = mode === "login" ? "signup" : "login";
 
-        // Kalau ada handler route dari luar, pakai itu (mis. pindah ke /signup atau /login)
         if (onSwitchModeRoute) {
             onSwitchModeRoute(target);
             return;
         }
 
-        // Fallback: toggle mode di dalam komponen seperti sebelumnya
         setMode(target);
         setEmail("");
         setPassword("");
@@ -56,7 +55,6 @@ export default function AuthCard({
 
     return (
         <div className="w-full max-w-md animate-fadeIn">
-            {/* Logo - Optional, bisa dihapus kalau tidak mau */}
             <div className="flex items-center justify-center gap-3 mb-8">
                 <Image
                     src="/icons/Happy_Polos.png"

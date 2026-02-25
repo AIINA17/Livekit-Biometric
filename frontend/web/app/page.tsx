@@ -1,12 +1,14 @@
-//app/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+// Main authenticated chat page for the voice shopping assistant.
+
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import Sidebar from "@/components/Sidebar";
+
 import ChatArea from "@/components/ChatArea";
+import Sidebar from "@/components/Sidebar";
 import VerificationToast from "@/components/VerificationToast";
+import { supabase } from "@/lib/supabase";
 import { Message, Product } from "@/types";
 
 type VerificationStatus = "VERIFIED" | "REPEAT" | "DENIED" | null;
@@ -36,21 +38,18 @@ export default function Home() {
     const [roomStatus, setRoomStatus] = useState("Not connected");
     const [score, setScore] = useState<number | null>(null);
 
-    // ✅ VERIFICATION TOAST STATE
     const [verificationResult, setVerificationResult] = useState<{
         status: VerificationStatus;
         score: number | null;
         reason: string | null;
     }>({ status: null, score: null, reason: null });
 
-    // ✅ SESSION/CONVERSATION STATE
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(
         null,
     );
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
-    // Check session on mount
     useEffect(() => {
         const checkSession = async () => {
             const {
@@ -86,7 +85,6 @@ export default function Home() {
         return () => subscription.unsubscribe();
     }, [router]);
 
-    // Message handler
     const addMessage = (role: "user" | "assistant", text: string) => {
         if (!text || text.trim() === "") return;
 
@@ -108,7 +106,6 @@ export default function Home() {
     }, []);
 
     const handleSelectSession = (sessionId: string) => {
-        // Dari halaman utama, kalau klik recents kita arahkan ke halaman history detail
         setCurrentSessionId(sessionId);
         router.push(`/history/${sessionId}`);
     };
@@ -166,7 +163,6 @@ export default function Home() {
         router.replace("/login");
     };
 
-    // Loading screen
     if (isLoading) {
         return (
             <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
@@ -175,7 +171,6 @@ export default function Home() {
         );
     }
 
-    // Not logged in - redirecting to login page
     if (!isLoggedIn) {
         return (
             <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
@@ -186,10 +181,8 @@ export default function Home() {
         );
     }
 
-    // LOGGED IN - Show Main App
     return (
         <main className="h-screen bg-(--bg-primary) flex overflow-hidden">
-            {/* ✅ VERIFICATION TOAST */}
             <VerificationToast
                 status={verificationResult.status}
                 score={verificationResult.score}
@@ -197,7 +190,6 @@ export default function Home() {
                 onClose={clearVerificationResult}
             />
 
-            {/* Sidebar */}
             <Sidebar
                 isLoggedIn={isLoggedIn}
                 userEmail={session?.user?.email || ""}
@@ -209,7 +201,6 @@ export default function Home() {
                 onNewChat={handleNewChat}
             />
 
-            {/* Main Chat Area */}
             <ChatArea
                 messages={messages}
                 products={products}

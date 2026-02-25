@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Dict
 from uuid import UUID
 
 from db.connection import get_supabase

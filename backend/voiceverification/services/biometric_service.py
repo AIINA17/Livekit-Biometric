@@ -19,9 +19,6 @@ class BiometricService:
         self.policy = TrustedUpdatePolicy()
         print("Biometric ready.")
 
-    # ======================================================
-    # MAIN VERIFY FUNCTION (USED BY SERVER)
-    # ======================================================
     def verify_against_multiple_embeddings(
         self,
         *,

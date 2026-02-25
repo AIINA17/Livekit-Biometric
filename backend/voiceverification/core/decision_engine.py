@@ -1,7 +1,5 @@
-from enum import Enum
 from dataclasses import dataclass
-
-from core.user_profile import UserProfile
+from enum import Enum
 
 class Decision(Enum):
     VERIFIED = "VERIFIED"

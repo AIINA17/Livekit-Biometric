@@ -1,7 +1,8 @@
-import os
-import json
 import asyncio
+import json
+import os
 import time
+
 from dotenv import load_dotenv
 
 # ================= PATH FIX =================
@@ -11,45 +12,36 @@ BACKEND_DIR = os.path.dirname(VOICEVERIFICATION_DIR)
 ENV_PATH = os.path.join(BACKEND_DIR, ".env")
 load_dotenv(ENV_PATH)
 
-# ================= LIVEKIT =================
 from livekit import agents
-from livekit.agents import (
-    AgentServer,
-    AgentSession,
-    Agent,
-    cli,
-    room_io,
-)
+from livekit.agents import Agent, AgentServer, AgentSession, cli, room_io
 from livekit.plugins import google, noise_cancellation
 
-# ================= APP LOGIC =================
 from agent.prompts import AGENT_INSTRUCTION, SESSION_INSTRUCTION
-from db.conversation_logs import insert_conversation_log
-from db.conversation_sessions import create_conversation_session
-
 from agent.tools import (
-    get_weather,
-    web_search,
-    login,
-    register,
-    logout,
+    add_to_cart,
+    auth_state,
     check_login_status,
     check_voice_status,
-    get_shopkupay_balance,
-    send_product_cards,
+    get_weather,
+    login,
+    logout,
+    pay_order,
+    register,
+    remove_from_cart,
     search_product,
+    send_product_cards,
+    get_shopkupay_balance,
     get_product_detail,
     get_product_from_search_index,
-    add_to_cart,
     get_cart,
-    remove_from_cart,
     checkout,
-    pay_order,
     get_order_history,
     get_order_detail,
-
-    auth_state
+    web_search,
 )
+
+from db.conversation_logs import insert_conversation_log
+from db.conversation_sessions import create_conversation_session
 
 # ================= CONFIG =================
 SAMPLE_RATE = 16000

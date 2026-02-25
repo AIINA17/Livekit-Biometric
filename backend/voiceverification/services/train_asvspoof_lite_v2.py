@@ -15,9 +15,7 @@ SR = 16000
 N_FFT = 1024
 HOP = 512
 
-# =========================================================
-# FEATURE EXTRACTION (IDENTIK DENGAN INFERENCE)
-# =========================================================
+# Feature extraction (same logic as inference)
 def extract_features(path):
     try:
         y, _ = librosa.load(path, sr=SR, mono=True)
@@ -61,9 +59,7 @@ def extract_features(path):
         return None
 
 
-# =========================================================
-# LOAD DATASET (GENUINE vs IMPOSTOR + SPOOF)
-# =========================================================
+# Load training dataset (genuine, impostor, spoof)
 def load_dataset(base="dataset"):
     X, y = [], []
 
@@ -97,9 +93,7 @@ def load_dataset(base="dataset"):
     return np.array(X), np.array(y)
 
 
-# =========================================================
-# TRAINING
-# =========================================================
+# Train lightweight ASVspoof detector
 def train():
     print("🔄 Loading dataset...")
     X, y = load_dataset()
@@ -130,9 +124,7 @@ def train():
     print(confusion_matrix(yte, ypred))
     print(classification_report(yte, ypred, digits=4))
 
-    # =====================================================
-    # EXTRACT MODEL PARAMETERS (UNTUK INFERENCE)
-    # =====================================================
+    # Extract model parameters for inference implementation
     scaler = pipe.named_steps["scaler"]
     clf    = pipe.named_steps["clf"]
 

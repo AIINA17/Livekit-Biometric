@@ -1,6 +1,7 @@
+import warnings
+
 import librosa
 import numpy as np
-import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 

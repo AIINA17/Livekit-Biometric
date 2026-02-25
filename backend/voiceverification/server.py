@@ -1,48 +1,42 @@
+"""FastAPI server for voice verification, enrollment, and conversation logs.
+
+Integrates LiveKit for real-time audio rooms and uses biometric
+verification services for speaker enrollment and spoof detection.
+"""
+
 import asyncio
 import os
 import time
-
-import numpy as np
-import librosa
-import torch
-
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 
-
-from fastapi import FastAPI, Form, UploadFile, File, Request, HTTPException
+import librosa
+import numpy as np
+import torch
+from dotenv import load_dotenv
+from fastapi import File, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-
-from livekit.api import AccessToken, VideoGrants, LiveKitAPI, CreateAgentDispatchRequest
-from livekit.api import ListParticipantsRequest
-
+from livekit.api import (
+    AccessToken,
+    CreateAgentDispatchRequest,
+    LiveKitAPI,
+    VideoGrants,
+)
 from pydantic import BaseModel
-from db.connection import get_supabase
-from services.biometric_service import BiometricService
 
-
-from core.decision_engine import Decision
+from auth.auth_utils import get_user_id_from_request
 from core.behavior_profile import BehaviorProfile
-
-from utils.audio import save_audio, normalize_audio
-
-
-from db.behavior_repo import (load_behavior_profile,save_behavior_profile)
-
-from db.speaker_repo import count_enrollments, save_embedding, load_all_embeddings
-
+from db.behavior_repo import load_behavior_profile, save_behavior_profile
+from db.connection import get_supabase
 from db.conversation_sessions import update_conversation_session_label
+from db.speaker_repo import count_enrollments, load_all_embeddings, save_embedding
+from models.speaker_verifier import SpeakerVerifier
+from services.biometric_service import BiometricService
+from utils.audio import normalize_audio, save_audio
 
-# =========================
-# ENV SETUP
-# =========================
+# Environment setup
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(ENV_PATH)
-
-from auth.auth_utils import get_user_id_from_request
-
-from models.speaker_verifier import SpeakerVerifier
 
 
 
@@ -53,10 +47,7 @@ if not LIVEKIT_API_KEY or not LIVEKIT_API_SECRET:
     raise RuntimeError("LIVEKIT credentials not set")
 
 
-
-# =========================
-# APP INIT
-# =========================
+# FastAPI application
 app = FastAPI()
 
 app.add_middleware(
@@ -70,14 +61,14 @@ app.add_middleware(
 
 biometric: BiometricService | None = None
 
+
 def get_biometric() -> BiometricService:
+    """Lazily initialize and return the singleton BiometricService instance."""
     global biometric
     if biometric is None:
-        print("🔧 Initializing BiometricService...")
         device = "cuda" if torch.cuda.is_available() else "cpu"
         biometric = BiometricService(device=device)
-        print("✅ BiometricService initialized")
-        print(f"Using device: {device}")
+        print(f"BiometricService initialized on device: {device}")
     return biometric
 
 
@@ -85,11 +76,10 @@ def get_biometric() -> BiometricService:
 @app.on_event("startup")
 async def startup_event():
     get_biometric()
-    print("🚀 Server is ready.")
+    print("Server startup complete.")
 
-# =========================
-#  JOIN TOKEN (NO VERIFICATION)
-# =========================
+
+# JOIN TOKEN (NO VERIFICATION)
 @app.post("/join-token")
 async def join_token(request: Request):
     user_id = get_user_id_from_request(request)
@@ -110,7 +100,6 @@ async def join_token(request: Request):
     token.with_identity(user_id)
     token.with_grants(grant)
 
-
     # Dispatch agent to room
     async with LiveKitAPI(
         url=os.getenv("LIVEKIT_URL"),
@@ -126,19 +115,15 @@ async def join_token(request: Request):
     return {
         "status": "OK",
         "token": token.to_jwt(),
-        "room": room_name
+        "room": room_name,
     }
 
 
-
-# =========================
-# 2️⃣ VOICE VERIFICATION ONLY
-# =========================
+# VOICE VERIFICATION ONLY
 @app.post("/verify-voice")
 async def verify_voice(request: Request, audio: UploadFile = File(...)):
     user_id = get_user_id_from_request(request)
 
-    # 1️⃣ Load enrollment & behavior
     enroll_embeddings = load_all_embeddings(user_id)
     if not enroll_embeddings:
         return {
@@ -146,14 +131,12 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             "reason": "No enrollment profile found for user."
         }
     
-    # 2️⃣ Save & normalize live audio
     wav_path = save_audio(audio)
     normalize_audio(wav_path)
 
     try:
         bio = get_biometric()
 
-        # 3️⃣ Load behavior profile per label yang terdaftar
         behavior_profiles: dict[str, BehaviorProfile] = {}
         for profile_meta in enroll_embeddings:
             lbl = profile_meta["label"]
@@ -161,7 +144,6 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
             if bp is not None:
                 behavior_profiles[lbl] = bp
 
-        # 4️⃣ Verify — pass per-label behavior profiles ke BiometricService
         start = time.time()
 
         result = await asyncio.to_thread(
@@ -174,14 +156,12 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
 
         print("Verify took:", time.time() - start)
 
-        # 5️⃣ Simpan behavior profile hanya untuk label yang matched
         matched_label: str | None = result.get("best_label")
         updated_profile: BehaviorProfile | None = result.get("updated_behavior_profile")
 
         if matched_label and updated_profile:
             save_behavior_profile(user_id, matched_label, updated_profile)
 
-        # 6️⃣ Response ke client / agent
         return {
             "verified": result["verified"],
             "status": result["decision"],
@@ -199,9 +179,7 @@ async def verify_voice(request: Request, audio: UploadFile = File(...)):
 
 
 
-# =========================
 # HEALTH CHECK
-# =========================
 @app.get("/health")
 async def health_check():
     bio_service = get_biometric()
@@ -210,10 +188,7 @@ async def health_check():
         "biometric_service": biometric is not None
     }
 
-# =========================
-# VOICE ENROLLMENT 
-# =========================
-
+# VOICE ENROLLMENT
 @app.post("/enroll-voice")
 async def enroll_voice(
     request: Request, 
@@ -234,7 +209,6 @@ async def enroll_voice(
     try:
         verifier = SpeakerVerifier()
 
-        # 1️⃣ Extract & save embedding
         embedding = verifier.extract_embedding(wav_path)
 
         existing_label = (
@@ -253,7 +227,6 @@ async def enroll_voice(
         
         save_embedding(user_id, embedding, label)
 
-        # 2️⃣ Bootstrap behavior profile (ONLY IF NOT EXISTS)
         behavior_profile = load_behavior_profile(user_id, label)
 
         if behavior_profile is None:
@@ -285,9 +258,7 @@ async def enroll_voice(
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
-# =========================
 # CONVERSATION LOGS & SESSIONS
-# =========================
 @app.get("/logs/sessions")
 async def get_conversation_sessions(request: Request):
     user_id = get_user_id_from_request(request)
@@ -306,9 +277,7 @@ async def get_conversation_sessions(request: Request):
         "sessions": res.data or []
     }
 
-# =========================
 # GET LOGS BY SESSION ID
-# =========================
 @app.get("/logs/sessions/{session_id}")
 async def get_conversation_logs(
     session_id: str,
@@ -351,9 +320,7 @@ async def get_conversation_logs(
         "product_cards": product_cards.data or []
     }
 
-# =========================
 # UPDATE SESSION LABEL
-# =========================
 class UpdateSessionLabelPayload(BaseModel):
     label: str
 
@@ -392,9 +359,7 @@ async def update_session_label(
         "label": new_label
     }
 
-# =========================
 # DELETE SESSION (AND LOGS)
-# =========================
 @app.delete("/conversation-sessions/{session_id}")
 async def delete_conversation_session(
     session_id: str,
@@ -421,7 +386,7 @@ async def delete_conversation_session(
         .eq("session_id", session_id)\
         .execute()  
     
-    # delete session
+    # delete session row
     sb.table("conversation_sessions")\
         .delete()\
         .eq("id", session_id)\
@@ -432,9 +397,7 @@ async def delete_conversation_session(
         "session_id": session_id
     }
 
-#========================
 # GET ALL ENROLLMENTS
-#========================
 @app.get("/enrollments")
 async def get_enrollments(request: Request):
     user_id = get_user_id_from_request(request)
@@ -454,9 +417,7 @@ async def get_enrollments(request: Request):
         "enrollments": res.data or []
     }
 
-# =========================
 # DELETE ENROLLMENT BY ID
-# =========================
 @app.delete("/enrollments/{enrollment_id}")
 async def delete_enrollment(
     enrollment_id: str,
@@ -501,9 +462,8 @@ async def delete_enrollment(
 
 class RenameSpeakerPayload(BaseModel):
     label: str
-# =========================
+
 # RENAME SPEAKER LABEL
-# =========================
 @app.patch("/speakers/{speaker_id}/label")
 async def rename_speaker_label(
     speaker_id: str,

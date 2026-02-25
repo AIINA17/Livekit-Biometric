@@ -20,14 +20,9 @@ class SpeakerVerifier:
         """
         self.model.eval()
         with torch.no_grad():
-            # 1️⃣ Load audio (SpeechBrain helper)
             waveform = self.model.load_audio(wav_path)
-
-            # 2️⃣ Add batch dimension
             if waveform.dim() == 1:
                 waveform = waveform.unsqueeze(0)
-
-            # 3️⃣ Encode → embedding
             emb = self.model.encode_batch(waveform)
         emb = emb.squeeze().cpu().numpy()
         emb = emb / np.linalg.norm(emb)

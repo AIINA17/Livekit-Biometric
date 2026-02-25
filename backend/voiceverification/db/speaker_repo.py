@@ -1,5 +1,5 @@
-# voiceverification/db/speaker_repo.py
 import numpy as np
+
 from .connection import get_supabase
 
 def load_embedding(user_id: str) -> np.ndarray | None:

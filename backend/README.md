@@ -12,7 +12,7 @@ Backend ini adalah layanan FastAPI untuk verifikasi suara, anti-spoofing, dan ma
 - `voiceverification/db/` — akses Supabase (speaker_repo, behavior_repo, conversation_logs, conversation_sessions)
 - `voiceverification/utils/` — utilitas audio dan analitik
 
-## Requirement Lingkungan
+## ENV Requirement
 
 - Python 3.10
 - ffmpeg, libsndfile1 (sudah di-handle oleh Dockerfile)

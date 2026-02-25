@@ -169,66 +169,95 @@ async def search_product(
 ) -> str:
     """
     Search for products in the e-commerce website.
+    Fetches all products then filters locally by the given criteria.
 
     Args:
-        query: Search keyword for product name (optional)
-        category: Filter by category (Electronics, Fashion, Home, Sports, Books)
+        query: Search keyword for product name (optional, matches partial name)
+        category: Filter by category — one of: "Gadget & Tech", "Lifestyle", "Home & Living", "Lain-lain"
         min_price: Minimum price filter
         max_price: Maximum price filter
         min_rating: Minimum rating filter (0.0-5.0)
         sort_by: Sort results (price_asc, price_desc, rating_desc, newest)
     """
     try:
-        params = {}
-        if query:
-            params["q"] = query
-        if category:
-            params["category"] = category
-        if min_price > 0:
-            params["min_price"] = min_price
-        if max_price > 0:
-            params["max_price"] = max_price
-        if min_rating > 0:
-            params["min_rating"] = min_rating
-        if sort_by:
-            params["sort"] = sort_by
-
+        # Fetch ALL products (API does not support server-side filtering)
         response = requests.get(
             f"{BASE_URL}/api/products",
-            params=params,
             timeout=10
         )
 
-        if response.status_code == 200:
-            data = response.json()
-            products = data.get("data", [])
+        if response.status_code != 200:
+            return "Gagal mencari produk."
 
-            if not products:
-                search_term = query if query else "semua kategori"
-                return f"Gak nemu produk untuk '{search_term}'."
+        data = response.json()
+        products = data.get("data", [])
 
-            # ✅ Simpan ke memory agar bisa diakses tools lain
-            auth_state["last_search_products"] = products[:10]
+        if not products:
+            return "Tidak ada produk di toko saat ini."
 
-            # ✅ Kirim ke frontend via internal function (bukan @function_tool)
-            await _send_product_cards_internal(products[:8])
+        # ── Client-side filtering ──
+        if query:
+            q_lower = query.lower()
+            products = [
+                p for p in products
+                if q_lower in (p.get("name") or "").lower()
+                or q_lower in (p.get("description") or "").lower()
+            ]
 
-            # ✅ Return daftar lengkap ke LLM agar agent tahu semua produk
-            search_term = query if query else "semua kategori"
-            result = f"Ketemu {len(products)} produk untuk '{search_term}'. Gue tampilin {min(len(products), 8)} di layar.\n\n"
-            result += "Daftar produk yang ditampilkan:\n"
-            for i, p in enumerate(products[:8], 1):
-                result += (
-                    f"{i}. {p.get('name', 'Unknown')}\n"
-                    f"   ID: {p.get('id', '-')} | "
-                    f"Harga: Rp {p.get('price', 0):,} | "
-                    f"Stok: {p.get('stock', 0)} | "
-                    f"Kategori: {p.get('category', '-')}\n"
-                )
-            result += "\nUser bisa minta detail atau tambahin ke keranjang dengan sebut nama/nomor produk."
-            return result
+        if category:
+            cat_lower = category.lower()
+            products = [
+                p for p in products
+                if (p.get("category") or "").lower() == cat_lower
+            ]
 
-        return "Gagal mencari produk."
+        if min_price > 0:
+            products = [p for p in products if (p.get("price") or 0) >= min_price]
+
+        if max_price > 0:
+            products = [p for p in products if (p.get("price") or 0) <= max_price]
+
+        if min_rating > 0:
+            products = [p for p in products if (p.get("rating") or 0) >= min_rating]
+
+        # ── Sorting ──
+        if sort_by == "price_asc":
+            products.sort(key=lambda p: p.get("price") or 0)
+        elif sort_by == "price_desc":
+            products.sort(key=lambda p: p.get("price") or 0, reverse=True)
+        elif sort_by == "rating_desc":
+            products.sort(key=lambda p: p.get("rating") or 0, reverse=True)
+        elif sort_by == "newest":
+            products.sort(key=lambda p: p.get("created_at") or "", reverse=True)
+
+        if not products:
+            search_term = query if query else "filter yang diberikan"
+            return f"Gak nemu produk untuk '{search_term}'."
+
+        # ✅ Simpan ke memory agar bisa diakses tools lain
+        auth_state["last_search_products"] = products[:10]
+
+        # ✅ Kirim ke frontend via internal function (bukan @function_tool)
+        await _send_product_cards_internal(products[:8])
+
+        # ✅ Return daftar lengkap ke LLM agar agent tahu semua produk
+        search_term = query if query else "semua produk"
+        result = f"Ketemu {len(products)} produk untuk '{search_term}'. Gue tampilin {min(len(products), 8)} di layar.\n\n"
+        result += "Daftar produk yang ditampilkan:\n"
+        for i, p in enumerate(products[:8], 1):
+            result += (
+                f"{i}. {p.get('name', 'Unknown')}\n"
+                f"   ID: {p.get('id', '-')} | "
+                f"Harga: Rp {p.get('price', 0):,} | "
+                f"Stok: {p.get('stock', 0)} | "
+                f"Kategori: {p.get('category', '-')}\n"
+            )
+
+        if len(products) > 8:
+            result += f"\n(Ada {len(products) - 8} produk lagi yang gak ditampilin.)\n"
+
+        result += "\nUser bisa minta detail atau tambahin ke keranjang dengan sebut nama/nomor produk."
+        return result
 
     except Exception as e:
         logging.error(f"Search product error: {e}")

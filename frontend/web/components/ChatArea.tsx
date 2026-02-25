@@ -68,7 +68,8 @@ export default function ChatArea({
     const [viewMode, setViewMode] = useState<ViewMode>("voice");
     const [isProductSidebarOpen, setIsProductSidebarOpen] = useState(true);
 
-    const isHistoryMode = messages.length > 0 && !isConnected;
+    const isHistoryMode =
+        isViewingHistory || (messages.length > 0 && !isConnected);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

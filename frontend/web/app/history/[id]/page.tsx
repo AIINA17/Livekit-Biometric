@@ -1,31 +1,30 @@
-//app/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "@/components/Sidebar";
 import ChatArea from "@/components/ChatArea";
 import VerificationToast from "@/components/VerificationToast";
 import { Message, Product } from "@/types";
 
-type VerificationStatus = "VERIFIED" | "REPEAT" | "DENIED" | null;
-
-export default function Home() {
+export default function HistoryDetailPage() {
     const router = useRouter();
+    const params = useParams<{ id: string }>();
+    const sessionId = params.id;
 
     // Auth state
     const [session, setSession] = useState<any | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Chat state
+    // Chat/history state
     const [messages, setMessages] = useState<Message[]>([]);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isTyping, setIsTyping] = useState(false);
     const [products, setProducts] = useState<Product[]>([]);
+    const [isTyping, setIsTyping] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
 
-    // Voice state
+    // Voice state (tidak dipakai di history tapi diperlukan oleh ChatArea)
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [speakingRole, setSpeakingRole] = useState<"user" | "agent" | null>(
         null,
@@ -36,21 +35,19 @@ export default function Home() {
     const [roomStatus, setRoomStatus] = useState("Not connected");
     const [score, setScore] = useState<number | null>(null);
 
-    // ✅ VERIFICATION TOAST STATE
     const [verificationResult, setVerificationResult] = useState<{
-        status: VerificationStatus;
+        status: "VERIFIED" | "REPEAT" | "DENIED" | null;
         score: number | null;
         reason: string | null;
     }>({ status: null, score: null, reason: null });
 
-    // ✅ SESSION/CONVERSATION STATE
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(
         null,
     );
 
     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
-    // Check session on mount
+    // Cek session saat pertama kali load
     useEffect(() => {
         const checkSession = async () => {
             const {
@@ -70,7 +67,6 @@ export default function Home() {
 
         checkSession();
 
-        // Listen for auth changes
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -86,73 +82,59 @@ export default function Home() {
         return () => subscription.unsubscribe();
     }, [router]);
 
-    // Message handler
-    const addMessage = (role: "user" | "assistant", text: string) => {
-        if (!text || text.trim() === "") return;
+    // Load logs untuk sessionId dari URL
+    useEffect(() => {
+        const loadSession = async () => {
+            if (!session?.access_token || !SERVER_URL || !sessionId) return;
 
-        const newMessage: Message = {
-            role,
-            text: text.trim(),
-            timestamp: new Date(),
+            setCurrentSessionId(sessionId);
+
+            try {
+                const res = await fetch(
+                    `${SERVER_URL}/logs/sessions/${sessionId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${session.access_token}`,
+                        },
+                    },
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+
+                const newMessages: Message[] = (data.logs || []).map(
+                    (log: any) => ({
+                        role: log.role,
+                        text: log.content,
+                        timestamp: new Date(log.created_at),
+                    }),
+                );
+
+                const allProducts: Product[] = (
+                    data.product_cards || []
+                ).flatMap((card: any) => card.products || []);
+
+                setMessages(newMessages);
+                setProducts(allProducts);
+                setIsConnected(false); // pastikan selalu history mode
+            } catch (error) {
+                console.error("Error loading session:", error);
+            }
         };
 
-        setMessages((prev) => [...prev, newMessage]);
-    };
-
-    const handleProductCards = (newProducts: Product[]) => {
-        setProducts(newProducts);
-    };
+        loadSession();
+    }, [SERVER_URL, session, sessionId]);
 
     const clearVerificationResult = useCallback(() => {
         setVerificationResult({ status: null, score: null, reason: null });
     }, []);
 
-    const handleSelectSession = (sessionId: string) => {
-        // Dari halaman utama, kalau klik recents kita arahkan ke halaman history detail
-        setCurrentSessionId(sessionId);
-        router.push(`/history/${sessionId}`);
+    const handleSelectSession = async (newSessionId: string) => {
+        // Pindah ke URL history baru, data akan di-load oleh useEffect di atas
+        router.replace(`/history/${newSessionId}`);
     };
 
     const handleNewChat = () => {
-        setCurrentSessionId(null);
-        setMessages([]);
-        setProducts([]);
-    };
-
-    // Auth handlers
-    const handleLogin = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            alert(error.message);
-            return;
-        }
-
-        setSession(data.session);
-        setIsLoggedIn(true);
-    };
-
-    const handleSignup = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
-
-        if (error) {
-            alert("Signup gagal: " + error.message);
-            return;
-        }
-
-        if (!data.session) {
-            alert("Cek email kamu untuk verifikasi akun");
-            return;
-        }
-
-        setSession(data.session);
-        setIsLoggedIn(true);
+        router.replace("/");
     };
 
     const handleLogout = async () => {
@@ -166,7 +148,6 @@ export default function Home() {
         router.replace("/login");
     };
 
-    // Loading screen
     if (isLoading) {
         return (
             <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
@@ -175,7 +156,6 @@ export default function Home() {
         );
     }
 
-    // Not logged in - redirecting to login page
     if (!isLoggedIn) {
         return (
             <main className="h-screen bg-(--bg-primary) flex items-center justify-center">
@@ -186,10 +166,8 @@ export default function Home() {
         );
     }
 
-    // LOGGED IN - Show Main App
     return (
         <main className="h-screen bg-(--bg-primary) flex overflow-hidden">
-            {/* ✅ VERIFICATION TOAST */}
             <VerificationToast
                 status={verificationResult.status}
                 score={verificationResult.score}
@@ -197,19 +175,17 @@ export default function Home() {
                 onClose={clearVerificationResult}
             />
 
-            {/* Sidebar */}
             <Sidebar
                 isLoggedIn={isLoggedIn}
                 userEmail={session?.user?.email || ""}
                 onLogout={handleLogout}
                 token={session?.access_token || null}
                 setVerifyStatus={setVerifyStatus}
-                currentSessionId={currentSessionId}
+                currentSessionId={currentSessionId || sessionId}
                 onSelectSession={handleSelectSession}
                 onNewChat={handleNewChat}
             />
 
-            {/* Main Chat Area */}
             <ChatArea
                 messages={messages}
                 products={products}
@@ -224,12 +200,13 @@ export default function Home() {
                 setIsTyping={setIsTyping}
                 setIsSpeaking={setIsSpeaking}
                 setSpeakingRole={setSpeakingRole}
-                addMessage={addMessage}
-                onProductCards={handleProductCards}
+                addMessage={() => {}}
+                onProductCards={(p) => setProducts(p)}
                 setVerifyStatus={setVerifyStatus}
                 setRoomStatus={setRoomStatus}
                 setScore={setScore}
                 setVerificationResult={setVerificationResult}
+                isViewingHistory
             />
         </main>
     );

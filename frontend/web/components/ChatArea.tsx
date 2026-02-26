@@ -42,6 +42,7 @@ interface ChatAreaProps {
         reason: string | null;
     }) => void;
     isViewingHistory?: boolean;
+    onEndChat?: () => void;
 }
 
 export default function ChatArea({
@@ -61,6 +62,7 @@ export default function ChatArea({
     setScore,
     setVerificationResult,
     isViewingHistory = false,
+    onEndChat,
 }: ChatAreaProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [viewMode, setViewMode] = useState<ViewMode>("voice");
@@ -119,6 +121,7 @@ export default function ChatArea({
                             addMessage={addMessage}
                             onProductCards={onProductCards}
                             setIsTyping={setIsTyping}
+                            onEndChat={onEndChat}
                         />
                     </div>
                 )}

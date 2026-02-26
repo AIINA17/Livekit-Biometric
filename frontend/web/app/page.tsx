@@ -49,6 +49,8 @@ export default function Home() {
         null,
     );
 
+    const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
+
     useEffect(() => {
         const checkSession = async () => {
             const {
@@ -113,6 +115,7 @@ export default function Home() {
         setCurrentSessionId(null);
         setMessages([]);
         setProducts([]);
+        setSessionsRefreshKey((key) => key + 1);
     };
 
     const handleLogout = async () => {
@@ -162,6 +165,7 @@ export default function Home() {
                 currentSessionId={currentSessionId}
                 onSelectSession={handleSelectSession}
                 onNewChat={handleNewChat}
+                refreshKey={sessionsRefreshKey}
             />
 
             <ChatArea
@@ -184,6 +188,7 @@ export default function Home() {
                 setRoomStatus={setRoomStatus}
                 setScore={setScore}
                 setVerificationResult={setVerificationResult}
+                onEndChat={handleNewChat}
             />
         </main>
     );

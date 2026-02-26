@@ -35,6 +35,7 @@ interface SidebarProps {
     currentSessionId?: string | null;
     onSelectSession?: (sessionId: string) => void;
     onNewChat?: () => void;
+    refreshKey?: number;
 }
 
 const COLLAPSED_WIDTH = 72;
@@ -48,6 +49,7 @@ export default function Sidebar({
     currentSessionId,
     onSelectSession,
     onNewChat,
+    refreshKey,
 }: SidebarProps) {
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showEnrollmentList, setShowEnrollmentList] = useState(false);
@@ -123,6 +125,13 @@ export default function Sidebar({
 
         loadSessions();
     }, [isLoggedIn, token, loadSessions]);
+
+    // Explicit refresh trigger from parent (e.g., when a call is ended)
+    useEffect(() => {
+        if (!isLoggedIn || !token) return;
+        if (refreshKey === undefined) return;
+        loadSessions();
+    }, [refreshKey, isLoggedIn, token, loadSessions]);
 
     const handleNewChat = () => {
         onNewChat?.();

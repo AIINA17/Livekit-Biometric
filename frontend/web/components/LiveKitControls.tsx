@@ -23,6 +23,7 @@ interface LiveKitControlsProps {
         score: number | null;
         reason: string | null;
     }) => void;
+    onEndChat?: () => void;
 }
 
 export default function LiveKitControls({
@@ -36,6 +37,7 @@ export default function LiveKitControls({
     onProductCards,
     setIsTyping,
     setVerificationResult,
+    onEndChat,
 }: LiveKitControlsProps) {
     const {
         toggleRoom,
@@ -118,10 +120,19 @@ export default function LiveKitControls({
         }
     };
 
+    const handleClick = async () => {
+        if (uiState === "IDLE") {
+            await toggleRoom();
+        } else {
+            await toggleRoom();
+            onEndChat?.();
+        }
+    };
+
     return (
         <div className="space-y-4 justify-center items-center flex flex-col">
             {/* Voice Button - Always visible, changes based on state */}
-            <VoiceButton state={getButtonState()} onClick={toggleRoom} />
+            <VoiceButton state={getButtonState()} onClick={handleClick} />
 
             {/* Status Display */}
             <div className="flex items-center justify-center gap-2">

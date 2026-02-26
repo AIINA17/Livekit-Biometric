@@ -17,4 +17,4 @@ COPY . .
 
 WORKDIR /app/voiceverification
 
-CMD ["python", "-m", "agent.agent", "start"]
+CMD ["python", "-m", "agent.agent", "dev"]

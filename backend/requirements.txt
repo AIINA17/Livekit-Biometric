@@ -43,5 +43,5 @@ supabase==2.27.3
 # Torch
 # ⚠ DO NOT install torch here
 # Install torch + torchaudio manually with CUDA
-torch==2.0.1
-torchaudio==2.0.2
+# torch==2.0.1
+# torchaudio==2.0.2

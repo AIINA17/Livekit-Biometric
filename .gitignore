@@ -22,11 +22,14 @@ backend/.env
 
 # audio cache folder
 /audio_cache/
+**/audio_cache/
+backend/audio_cache/
+
+# temporary audio folder
 **/tmp_audio/
+backend/tmp_audio/
 
 /pretrained_models/
-
-**/audio_cache/
 
 backend/voiceverification/pretrained_models/
 pretrained_models/

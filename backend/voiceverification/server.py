@@ -22,6 +22,7 @@ from livekit.api import (
     LiveKitAPI,
     VideoGrants,
 )
+from livekit.api.twirp_client import TwirpError
 from pydantic import BaseModel
 
 from voiceverification.auth.auth_utils import get_user_id_from_request
@@ -123,7 +124,12 @@ async def join_token(request: Request):
         api_secret=LIVEKIT_API_SECRET,
     ) as lk:
 
-        existing = await lk.agent_dispatch.list_dispatch(room_name)
+        try:
+            existing = await lk.agent_dispatch.list_dispatch(room_name)
+        except TwirpError as e:
+            if e.code != "not_found":
+                raise
+            existing = []
         if not any(d.agent_name == AGENT_NAME for d in existing):
             await lk.agent_dispatch.create_dispatch(
                 CreateAgentDispatchRequest(room=room_name, agent_name=AGENT_NAME)
